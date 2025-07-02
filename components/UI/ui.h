@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 
-extern volatile bool GIF_end_flag;
+extern volatile bool GIF_end_flag; //gif完成动画标志
 extern volatile uint8_t Screens_ID;
 extern volatile bool calibration_flags;
 /*设置对象的宽度和高度为其父对象的 100%。

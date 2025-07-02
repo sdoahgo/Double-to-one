@@ -27,20 +27,39 @@ void ui_tick() {
 
 #else
 
+// 当前正在显示的屏幕编号，初始化为-1（表示无）
 static int16_t currentScreen = -1;
 
+/**
+ * @brief 通过索引获取 objects 结构体中对应的 lv_obj_t* 指针
+ * @param index - 需要获取的屏幕/控件在 objects 中的顺序索引
+ * @return lv_obj_t* 指针，如果 index 为 -1，返回 0
+ * 
+ * 注意：这里假定 objects_t 结构体内部所有成员（lv_obj_t*）的排列顺序和屏幕编号一一对应，
+ *      这样可以通过“指针偏移”方式快速访问到。
+ */
 static lv_obj_t *getLvglObjectFromIndex(int32_t index) {
     if (index == -1) {
+        // 索引为-1，返回0，防止非法访问
         return 0;
     }
+    // 将 objects 地址当作 lv_obj_t* 数组处理，按 index 获取
     return ((lv_obj_t **)&objects)[index];
 }
 
+/**
+ * @brief 切换当前 LVGL 屏幕
+ * @param screenId - 目标屏幕的枚举编号（通常从 1 开始）
+ * 
+ * 通过 screenId（如 SCREEN_ID_LANGUAGE_PAGE=2），转换为结构体数组下标（如1），
+ * 然后获取对应的 lv_obj_t*，最后使用 LVGL 的动画切换到该屏幕
+ */
 void loadScreen(enum ScreensEnum screenId) {
-    currentScreen = screenId - 1;
-    lv_obj_t *screen = getLvglObjectFromIndex(currentScreen);
-    lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+    currentScreen = screenId - 1;   // 转为 0 基下标
+    lv_obj_t *screen = getLvglObjectFromIndex(currentScreen); // 获取对应屏幕对象
+    lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false); // 淡入切屏动画
 }
+
 
 void ui_init() {
     create_screens();
@@ -54,7 +73,12 @@ void ui_tick() {
 static void delayed_delete_cb(lv_timer_t * timer) {
     printf("delayed_delete_cb\r\n");  // 打印回调信息
     lv_timer_del(timer);;
+    #ifdef USE_TDS
     loadScreen(SCREEN_ID_MEASURE_TDS);
+    #endif
+    #ifdef USE_TEMP
+    loadScreen(SCREEN_ID_MEASURE_TEMP);
+    #endif
     GIF_end_flag = true;
 }
 // GIF 播放结束的回调函数
@@ -116,28 +140,39 @@ void ui_event_page_load_tds_screen(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t *target = lv_event_get_target(e);
-    if(code == LV_EVENT_SCREEN_LOAD_START)
+    if(code == LV_EVENT_SCREEN_LOAD_START)//页面加载开始
     {
         switch (Screens_ID)
         {
+        #ifdef USE_TDS
         case SCREEN_ID_MEASURE_TDS:
-            left_or_right_Animation(objects.tds_container, 0, 26, 500, 1, 100);
-            left_or_right_Animation(objects.tds_temp_container, 232, 214, 500, 1, 100);
+            left_or_right_Animation(objects.tds_container, 0, 26, 500, 1, 200);
+            left_or_right_Animation(objects.tds_temp_container, 232, 214, 500, 1, 200);
             break;
+        #endif
+        #ifdef USE_TEMP
         case SCREEN_ID_MEASURE_TEMP:
-            top_or_bottom_Animation(objects.temp_container, 81, 46, 500, 1, 100);
-            top_or_bottom_Animation(objects.language_switch_prompt, 76, 52, 500, 1, 100);
+            top_or_bottom_Animation(objects.temp_container, 81, 46, 500, 1, 200);
+            top_or_bottom_Animation(objects.language_switch_prompt, 76, 52, 500, 1, 200);
             break;
+        #endif
         case SCREEN_ID_LANGUAGE_PAGE:
-            left_or_right_Animation(objects.chinese_bt, 0, 18, 500, 1, 100);
-            left_or_right_Animation(objects.engilsh_bt, 186, 168, 500, 1, 100);
+            left_or_right_Animation(objects.chinese_bt, 0, 18, 500, 1, 200);
+            left_or_right_Animation(objects.engilsh_bt, 186, 168, 500, 1, 200);
+            top_or_bottom_Animation(objects.language_switch_prompt, 96, 52, 500, 1, 100);
+
             break;
         case SCREEN_ID_CALIBRATION_PAGE:
-            top_or_bottom_Animation(objects.calibration_bt, -86, 0, 500, 1, 100);
-            top_or_bottom_Animation(objects.calibration_prompt, 76, 52, 500, 1, 100);
+            top_or_bottom_Animation(objects.calibration_bt, -86, 0, 500, 1, 200);
+            top_or_bottom_Animation(objects.calibration_prompt, 76, 52, 500, 1, 200);
             break;
         case SCREEN_ID_ABOUT_PAGE:
-                // left_or_right_Animation(objects.)
+                left_or_right_Animation(objects.qr_panel, 0, 18, 500, 1, 200);
+                left_or_right_Animation(objects.product_name_panel, 125, 107, 500, 1, 200);
+                left_or_right_Animation(objects.model_panel, 125, 107, 500, 1, 200);
+                left_or_right_Animation(objects.hardware_version_panel, 125, 107, 500, 1, 200);
+                left_or_right_Animation(objects.software_version_panel, 125, 107, 500, 1, 200);
+                top_or_bottom_Animation(objects.sn, 160, 134, 500, 1, 100);
             break;
 
         default:

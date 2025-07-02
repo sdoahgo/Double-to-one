@@ -229,7 +229,9 @@ void app_main(void)
     // TaskHandle_t GD60914_task_Handler;
     // UBaseType_t GD60914_task_stack;
     xTaskCreate(GD60914_task, "GD60914_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+4), NULL);
+    #ifdef USE_TDS
     xTaskCreate(TF_Luna_task, "TF_Luna_task", (1024 * 4), (void *)NULL, (tskIDLE_PRIORITY+5), NULL);
+    #endif
     ESP_LOGI(TAG, "Display LVGL Meter Widget"); 
     // 显示 LVGL 界面，可以切换不同的 LVGL 界面 demo
     // example_lvgl_demo_ui(disp); // 可选：自定义 demo
@@ -259,7 +261,7 @@ void gui_task_key_callback(uint8_t *event)
         if(GIF_end_flag)
         {
             Screens_ID = Screens_ID +1;
-            if(Screens_ID >= 6)
+            if(Screens_ID >= 5)
             {
                 Screens_ID = 1;
             }
@@ -296,7 +298,9 @@ void gui_task_key_callback(uint8_t *event)
                 lv_obj_set_style_bg_color(objects.chinese_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
                 lv_obj_set_style_bg_color(objects.engilsh_bt, lv_color_hex(0xff505050), LV_PART_MAIN | LV_STATE_DEFAULT);
             }
+            #ifdef USE_TEMP
             lv_label_set_text(lv_obj_get_child(objects.temp_container,5), UI_STRING[0][SYS_DATA.language_id]);
+            #endif
             lv_label_set_text(objects.language_switch_prompt, UI_STRING[1][SYS_DATA.language_id]);
             lv_label_set_text(objects.calibration_prompt, UI_STRING[2][SYS_DATA.language_id]);
             lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[3][SYS_DATA.language_id]);
@@ -329,6 +333,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
     int temp_f2 = temp_f_times100%100;
         switch (Screens_ID)
         {
+            #ifdef USE_TDS
             case SCREEN_ID_MEASURE_TDS:
                 lv_obj_t *child1 = lv_obj_get_child(objects.tds_temp_container, 1);
                 lv_obj_t *child2 = lv_obj_get_child(objects.tds_temp_container, 2);
@@ -355,6 +360,8 @@ void gui_task_UI_callback(ui_msg_t *msg){
                     lv_label_set_text_fmt(child4,"%d℉",temp_f2);
                 }
             break;
+            #endif
+            #ifdef USE_TEMP
             case SCREEN_ID_MEASURE_TEMP:
                 if(msg->data.temp_value >=  1000){
                     lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"%d.",msg->data.temp_value/10);    
@@ -371,6 +378,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
                 }
 
             break;
+            #endif
             default:
             break;
         }

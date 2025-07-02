@@ -12,7 +12,7 @@
 
 objects_t objects;
 lv_obj_t *tick_value_change_obj;
-
+#ifdef USE_TEMP
 void create_screen_measure_temp() {
     lv_obj_t *obj = lv_obj_create(0);
     objects.measure_temp = obj;
@@ -120,6 +120,7 @@ void create_screen_measure_temp() {
 
 void tick_screen_measure_temp() {
 }
+#endif
 
 void create_screen_language_page() {
     lv_obj_t *obj = lv_obj_create(0);
@@ -505,11 +506,12 @@ void create_screen_about_page() {
             }
         }
     }
+    lv_obj_add_event_cb(objects.about_page, ui_event_page_load_tds_screen, LV_EVENT_ALL, NULL);
 }
 
 void tick_screen_about_page() {
 }
-
+#ifdef USE_TDS
 void create_screen_measure_tds() {
     lv_obj_t *obj = lv_obj_create(0);
     objects.measure_tds = obj;
@@ -661,7 +663,7 @@ void create_screen_measure_tds() {
 
 void tick_screen_measure_tds() {
 }
-
+#endif
 void create_user_widget_status_bar(lv_obj_t *parent_obj, int startWidgetIndex) {
     lv_obj_t *obj = parent_obj;
     {
@@ -705,22 +707,29 @@ void create_screens() {
     lv_disp_t *dispp = lv_disp_get_default();
     lv_theme_t *theme = lv_theme_default_init(dispp, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED), true, LV_FONT_DEFAULT);
     lv_disp_set_theme(dispp, theme);
-    
+    #ifdef USE_TEMP
     create_screen_measure_temp();
+    #endif
     create_screen_language_page();
     create_screen_calibration_page();
     create_screen_about_page();
+    #ifdef USE_TDS
     create_screen_measure_tds();
+    #endif
 }
 
 typedef void (*tick_screen_func_t)();
 
 tick_screen_func_t tick_screen_funcs[] = {
+    #ifdef USE_TEMP
     tick_screen_measure_temp,
+    #endif
     tick_screen_language_page,
     tick_screen_calibration_page,
     tick_screen_about_page,
+    #ifdef USE_TDS
     tick_screen_measure_tds,
+    #endif
     0,
 };
 
