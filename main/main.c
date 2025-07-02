@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_timer.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
@@ -10,11 +8,20 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "lvgl.h"
+#include "nvs_flash.h"
 
+#include <math.h>
+#include "user_key.h"
+#include "GD60914.h"
+#include "TF_Luna.h"
 #include "esp_lcd_gc9307.h"
 #include "lv_demos.h"
+#include "ui.h"
+#include "user_hal.h"
 
 
+sys_data SYS_DATA;
+QueueHandle_t ui_msg_queue = NULL; //UI任务队列
 static const char *TAG = "example";
 
 #define LCD_HOST  SPI2_HOST
@@ -30,6 +37,7 @@ static const char *TAG = "example";
 #define EXAMPLE_PIN_NUM_BK_LIGHT       3
 
 #define ON_OFF 0
+#define Power_CTRL 4
 
 // 水平和垂直方向的像素数
 #define EXAMPLE_LCD_H_RES              320//172
@@ -40,7 +48,8 @@ static const char *TAG = "example";
 #define EXAMPLE_LCD_PARAM_BITS         8
 
 #define EXAMPLE_LVGL_TICK_PERIOD_MS    2
-
+void gui_task_key_callback(uint8_t *event);
+void gui_task_UI_callback(ui_msg_t *msg);
 
 extern void example_lvgl_demo_ui(lv_disp_t *disp);
 
@@ -99,13 +108,22 @@ static void example_increase_lvgl_tick(void *arg)
 
 void app_main(void)
 {
+    int ret=nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    user_device_init();
+
     // 配置 ON_OFF 引脚为输出模式，并初始化为高电平（打开某设备电源或主控电源）
     gpio_config_t on_off_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << ON_OFF
+        .pin_bit_mask = 1ULL << ON_OFF | 1ULL << Power_CTRL
     };
     ESP_ERROR_CHECK(gpio_config(&on_off_gpio_config));
     gpio_set_level(ON_OFF, 1); // 打开 ON_OFF 电源（假定高电平有效）
+    gpio_set_level(Power_CTRL, 1); // 打开 ON_OFF 电源（假定高电平有效）
 
     // 定义 LVGL 的绘制缓冲区和显示驱动结构体（静态，生命周期和主函数一致）
     static lv_disp_draw_buf_t disp_buf; // LVGL 的绘图缓冲区对象
@@ -170,7 +188,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
 
     ESP_LOGI(TAG, "Turn on LCD backlight");
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL); // 点亮背光
+    // gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL); // 点亮背光
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init(); // 初始化 LVGL 核心库
@@ -203,15 +221,171 @@ void app_main(void)
     esp_timer_handle_t lvgl_tick_timer = NULL;
     ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000)); // 定时器单位是微秒
+    user_key_init();
+    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL); // 点亮背光
 
-    ESP_LOGI(TAG, "Display LVGL Meter Widget");
+    ui_msg_queue = xQueueCreate(10, sizeof(ui_msg_t));
+    ui_msg_t msg;
+    // TaskHandle_t GD60914_task_Handler;
+    // UBaseType_t GD60914_task_stack;
+    xTaskCreate(GD60914_task, "GD60914_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+4), NULL);
+    xTaskCreate(TF_Luna_task, "TF_Luna_task", (1024 * 4), (void *)NULL, (tskIDLE_PRIORITY+5), NULL);
+    ESP_LOGI(TAG, "Display LVGL Meter Widget"); 
     // 显示 LVGL 界面，可以切换不同的 LVGL 界面 demo
-    example_lvgl_demo_ui(disp); // 可选：自定义 demo
+    // example_lvgl_demo_ui(disp); // 可选：自定义 demo
     // lv_demo_music(); // LVGL 自带音乐播放器 demo
-
+    ui_init();
+    // lv_example_gif2();
     // 主循环，不断调用 LVGL 任务处理函数（定时驱动 LVGL 刷新和事件处理）
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10)); // 延时 10ms，降低本任务优先级
+        if (xQueueReceive(KeyQueue, &key_event, 0)) {
+            gui_task_key_callback(&key_event);
+        }
+        if(xQueueReceive(ui_msg_queue, &msg, 0)){
+            gui_task_UI_callback(&msg);
+        }
+        // GD60914_task_stack =  uxTaskGetStackHighWaterMark(GD60914_task_Handler);
+        // printf( "Task High Water Mark: %u\n", GD60914_task_stack );
         lv_timer_handler();            // 处理 LVGL 相关任务（刷新、动画等）
+    }
+}
+volatile uint8_t Screens_ID = 1;
+void gui_task_key_callback(uint8_t *event)
+{
+    switch (*event)
+    {
+    case USER_KEY_SHORT_IN_EVT:
+        if(GIF_end_flag)
+        {
+            Screens_ID = Screens_ID +1;
+            if(Screens_ID >= 6)
+            {
+                Screens_ID = 1;
+            }
+            loadScreen(Screens_ID);
+            switch (Screens_ID)
+            {
+            case SCREEN_ID_CALIBRATION_PAGE:
+                lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+                break;
+            
+            default:
+                break;
+            }
+        }
+        break;
+    case USER_KEY_LONG_IN_EVT:
+        
+        break; 
+    case USER_KEY_DOUBLE_CLICK_IN_EVT:
+        printf("USER_KEY_DOUBLE_CLICK_IN_EVT %d\n",Screens_ID);
+        switch (Screens_ID)
+        {
+        case SCREEN_ID_LANGUAGE_PAGE:
+            SYS_DATA.language_id ++ ;
+            if(SYS_DATA.language_id>1){
+                SYS_DATA.language_id = 0;
+            }
+            user_save_sys_evn(&SYS_DATA);
+            if(SYS_DATA.language_id){//英文
+                lv_obj_set_style_bg_color(objects.chinese_bt, lv_color_hex(0xff505050), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(objects.engilsh_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+            }   
+            else{//中文
+                lv_obj_set_style_bg_color(objects.chinese_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(objects.engilsh_bt, lv_color_hex(0xff505050), LV_PART_MAIN | LV_STATE_DEFAULT);
+            }
+            lv_label_set_text(lv_obj_get_child(objects.temp_container,5), UI_STRING[0][SYS_DATA.language_id]);
+            lv_label_set_text(objects.language_switch_prompt, UI_STRING[1][SYS_DATA.language_id]);
+            lv_label_set_text(objects.calibration_prompt, UI_STRING[2][SYS_DATA.language_id]);
+            lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[3][SYS_DATA.language_id]);
+            lv_label_set_text(lv_obj_get_child(objects.product_name_panel,1), UI_STRING[6][SYS_DATA.language_id]);
+            lv_label_set_text(lv_obj_get_child(objects.model_panel,1), UI_STRING[7][SYS_DATA.language_id]);
+            lv_label_set_text(lv_obj_get_child(objects.software_version_panel,1), UI_STRING[9][SYS_DATA.language_id]);
+            lv_label_set_text(lv_obj_get_child(objects.hardware_version_panel,1), UI_STRING[8][SYS_DATA.language_id]);
+            break;
+        case SCREEN_ID_CALIBRATION_PAGE:
+            // lv_obj_add_state(objects.calibration_bt, LV_STATE_PRESSED);
+            // lv_obj_clear_state(objects.calibration_bt, LV_STATE_PRESSED);
+            lv_event_send(objects.calibration_bt, LV_EVENT_CLICKED, NULL);
+            break;
+        default:
+            break;
+        }
+        break; 
+    default:
+        break;
+    }
+
+}
+
+void gui_task_UI_callback(ui_msg_t *msg){
+    switch (msg->type)
+    {
+    case UI_MSG_UPDATE_TEMP:
+    int temp_f_times100 = msg->data.temp_value * 18 + 3200;//将摄氏度的10倍，转换成华氏度并100倍
+    int temp_f1 = temp_f_times100/100;
+    int temp_f2 = temp_f_times100%100;
+        switch (Screens_ID)
+        {
+            case SCREEN_ID_MEASURE_TDS:
+                lv_obj_t *child1 = lv_obj_get_child(objects.tds_temp_container, 1);
+                lv_obj_t *child2 = lv_obj_get_child(objects.tds_temp_container, 2);
+                lv_obj_t *child3 = lv_obj_get_child(objects.tds_temp_container, 3);
+                lv_obj_t *child4 = lv_obj_get_child(objects.tds_temp_container, 4);
+                if(msg->data.temp_value >=  1000)
+                {
+                    lv_label_set_text_fmt(child1,"%d.",msg->data.temp_value/10);
+                }
+                else{
+                    lv_label_set_text_fmt(child1,"0%d.",msg->data.temp_value/10);
+                }
+                lv_label_set_text_fmt(child2,"%d0℃",msg->data.temp_value%10);
+                if(temp_f1 >= 100){
+                    lv_label_set_text_fmt(child3,"%d.",temp_f1);    
+                }
+                else{
+                    lv_label_set_text_fmt(child3,"0%d.",temp_f1);
+                }
+                if(temp_f2 == 0){
+                    lv_label_set_text(child4, "00℉");
+                }
+                else{
+                    lv_label_set_text_fmt(child4,"%d℉",temp_f2);
+                }
+            break;
+            case SCREEN_ID_MEASURE_TEMP:
+                if(msg->data.temp_value >=  1000){
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"%d.",msg->data.temp_value/10);    
+                }
+                else{
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"0%d.",msg->data.temp_value/10);
+                }
+                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,1),"%d0",msg->data.temp_value%10);
+                if(temp_f_times100>=10000){
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"%.2f℉",(float)temp_f_times100 / 100.0f);     
+                }
+                else{
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"0%.2f℉",(float)temp_f_times100 / 100.0f);
+                }
+
+            break;
+            default:
+            break;
+        }
+    break;
+    case UI_MSG_UPDATE_850:
+        lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff2bf641), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[5][SYS_DATA.language_id]);
+        break;
+    case UI_MSG_UPDATE_LANUAGE:
+        /* code */
+        break;
+    case UI_MSG_UPDATE_STATE:
+        /* code */
+        break;
+    default:
+        break;
     }
 }
