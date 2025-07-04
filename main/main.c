@@ -104,7 +104,7 @@ static void example_increase_lvgl_tick(void *arg)
     /* Tell LVGL how many milliseconds has elapsed */
     lv_tick_inc(EXAMPLE_LVGL_TICK_PERIOD_MS);
 }
-
+lv_disp_drv_t disp_drv;      // LVGL 的显示驱动结构体
 void app_main(void)
 {
     // 配置 ON_OFF 引脚为输出模式，并初始化为高电平（打开某设备电源或主控电源）
@@ -127,7 +127,7 @@ void app_main(void)
 
     // 定义 LVGL 的绘制缓冲区和显示驱动结构体（静态，生命周期和主函数一致）
     static lv_disp_draw_buf_t disp_buf; // LVGL 的绘图缓冲区对象
-    static lv_disp_drv_t disp_drv;      // LVGL 的显示驱动结构体
+    // static lv_disp_drv_t disp_drv;      // LVGL 的显示驱动结构体
     ESP_LOGI(TAG, "Initialize SPI bus");
     // SPI 总线配置（连接 LCD）
     spi_bus_config_t buscfg = {
@@ -176,7 +176,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 34));       // 设置 LCD 画面偏移 gap（某些屏幕实际显示有像素偏移）
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
-
+ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init(); // 初始化 LVGL 核心库
@@ -220,7 +220,7 @@ void app_main(void)
     #ifdef USE_TDS
         TF_Luna_init();
     #endif
-
+    bool flags = false;
     xTaskCreate(GD60914_task, "GD60914_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+4), NULL);
     ESP_LOGI(TAG, "Display LVGL Meter Widget"); 
     // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
@@ -228,11 +228,16 @@ void app_main(void)
     // example_lvgl_demo_ui(disp); // 可选：自定义 demo
     // lv_demo_music(); // LVGL 自带音乐播放器 demo
     ui_init();
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
+    // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
     // lv_example_gif2();
     // 主循环，不断调用 LVGL 任务处理函数（定时驱动 LVGL 刷新和事件处理）
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10)); // 延时 10ms，降低本任务优先级
+        if(flags == false)
+        {
+            ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
+            flags = true;
+        }
         if (xQueueReceive(KeyQueue, &key_event, 0)) {
             gui_task_key_callback(&key_event);
         }
