@@ -26,8 +26,12 @@ static void button_single_click_cb(void *arg,void *usr_data)
 static void button_long_press_cb(void *arg,void *usr_data)
 {
    printf("button_long_press_cb\r\n");
-   gpio_set_level(3, 1); // 关闭背光
-    gpio_set_level(0, 0);
+   if(GIF_end_flag)
+   {
+        gpio_set_level(4, 0); //关闭传感器电源
+        gpio_set_level(3, 1); // 关闭屏幕电源
+        gpio_set_level(0, 0);//关闭所有的电源
+   }
     // gpio_deep_sleep_hold_dis();	    //在深度睡眠时禁用所有数字gpio pad保持功能 
     // // const gpio_num_t ext_wakeup_pin_0 = GPIO_NUM_5;
     // // ESP_ERROR_CHECK(esp_sleep_enable_ext0_wakeup(ext_wakeup_pin_0, 0));

@@ -44,41 +44,10 @@ static void IRAM_ATTR gpio_isr_handler(void* arg)
 
 void TF_Luna_init(void)
 {
-    uint8_t data = 0;
-    uint8_t SN_ID[14] = {0};
-    esp_err_t err = TF_Luna_read(SN_BASE, SN_ID, 14);
-    if(err != ESP_OK)
-    {                                                                                                                                
-        ESP_LOGE(TF_TAG, "TF read sn error: %s", esp_err_to_name(err));
-    }
-    printf("SN_ID: ");
-    for (int i = 0; i < 14; i++) {
-        printf("%02X ", SN_ID[i]);
-    }
-    printf("\n");
-
-    uint8_t datas[10] = {0};
     // TF_Luna_write_byte(0x1f,0x00); //标准模式
-    TF_Luna_write_byte(0x23,0x00); //连续工作模式
-    TF_Luna_write_byte(0x28,0x01); //低功耗模式
+    // TF_Luna_write_byte(0x23,0x00); //连续工作模式
     TF_Luna_write_byte(0x26,0x05); //帧率10
-    // vTaskDelay(pdMS_TO_TICKS(500));
-    // err = TF_Luna_read(0x28, &data, 1);
-    // if(err != ESP_OK)
-    // {                                                                                                                                
-    //     ESP_LOGE(TF_TAG, "TF read LOW_POWER error: %s", esp_err_to_name(err));
-    // }
-    // else{
-    //     ESP_LOGI(TF_TAG, "TF read 0x28: %x", data);
-    // }
-    // err = TF_Luna_read(0x26, &data, 1);
-    // if(err != ESP_OK)
-    // {                                                                                                                                
-    //     ESP_LOGE(TF_TAG, "TF read MODE error: %s", esp_err_to_name(err));
-    // }
-    // else{
-    //     ESP_LOGI(TF_TAG, "TF read 0x26: %x", data);
-    // }
+    TF_Luna_write_byte(0x28,0x01); //低功耗模式
 
     xTaskCreate(TF_Luna_task, "TF_Luna_task", (1024 * 4), (void *)NULL, (tskIDLE_PRIORITY+5), &TF_Luna_task_handle);
     gpio_config_t io_conf = {
@@ -91,27 +60,50 @@ void TF_Luna_init(void)
     gpio_config(&io_conf);              // 应用配置
     gpio_install_isr_service(0); // 参数0一般用默认
     gpio_isr_handler_add(TF_IO_OUT, gpio_isr_handler, (void*)TF_IO_OUT);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    err = TF_Luna_read(SN_BASE, datas, 10);
-    if(err != ESP_OK)
-    {                                                                                                                                
-        ESP_LOGE(TF_TAG, "TF read sn error: %s", esp_err_to_name(err));
-    }
-    printf("data: ");
-    for (int i = 0; i < 10; i++) {
-        printf("%02X ", datas[i]);
-    }
-    printf("\n");
 }
 
 void TF_Luna_task(void *pvParameters)
 {
-    uint64_t i =0;
+    uint8_t i =0;
     uint8_t datas[4] = {0};
+    uint8_t data = 0;
+    vTaskDelay(pdMS_TO_TICKS(500));
+    if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
+        esp_err_t err = TF_Luna_read(0x28, &data, 1);
+        if(err != ESP_OK)
+        {                                                                                                                                
+            ESP_LOGE(TF_TAG, "TF read LOW_POWER error: %s", esp_err_to_name(err));
+        }
+        else{
+            ESP_LOGI(TF_TAG, "TF read 0x28: %x", data);
+        }
+    xSemaphoreGive(i2c_mutex);
+    }
+        if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
+        esp_err_t err = TF_Luna_read(0x26, &data, 1);
+        if(err != ESP_OK)
+        {                                                                                                                                
+            ESP_LOGE(TF_TAG, "TF read MODE error: %s", esp_err_to_name(err));
+        }
+        else{
+            ESP_LOGI(TF_TAG, "TF read 0x26: %x", data);
+        }
+    xSemaphoreGive(i2c_mutex);
+    }
+    // err = TF_Luna_read(SN_BASE, datas, 4);
+    // if(err != ESP_OK)
+    // {                                                                                                                                
+    //     ESP_LOGE(TF_TAG, "TF read sn error: %s", esp_err_to_name(err));
+    // }
+    // printf("data: ");
+    // for (int i = 0; i < 4; i++) {
+    //     printf("%02X ", datas[i]);
+    // }
+    // printf("\n");
     while (1)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        printf("-------%lld\n",i++);
+        printf("-------%d\n",i++);
         if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
             esp_err_t err = TF_Luna_read(DIST_LOW, datas, 4);
             xSemaphoreGive(i2c_mutex);

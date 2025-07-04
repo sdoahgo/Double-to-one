@@ -177,11 +177,13 @@ static esp_err_t panel_gc9307_reset(esp_lcd_panel_t *panel)
 
     // perform hardware reset
     if (gc9307->reset_gpio_num >= 0) {
+        printf("1----------------------------------------------------------------------\n");
         gpio_set_level(gc9307->reset_gpio_num, gc9307->reset_level);
         vTaskDelay(pdMS_TO_TICKS(10));
         gpio_set_level(gc9307->reset_gpio_num, !gc9307->reset_level);
         vTaskDelay(pdMS_TO_TICKS(10));
     } else { // perform software reset
+        printf("2----------------------------------------------------------------------\n");
         ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, LCD_CMD_SWRESET, NULL, 0), TAG, "send command failed");
         vTaskDelay(pdMS_TO_TICKS(20)); // spec, wait at least 5ms before sending new command
     }
@@ -394,8 +396,10 @@ static esp_err_t panel_gc9307_disp_on_off(esp_lcd_panel_t *panel, bool on_off)
 
     if (on_off) {
         command = LCD_CMD_DISPON;
+        printf("============================================0x29\n");
     } else {
         command = LCD_CMD_DISPOFF;
+        printf("============================================0x28\n");
     }
     ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, command, NULL, 0), TAG, "send command failed");
     return ESP_OK;

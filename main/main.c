@@ -107,6 +107,16 @@ static void example_increase_lvgl_tick(void *arg)
 
 void app_main(void)
 {
+    // 配置 ON_OFF 引脚为输出模式，并初始化为高电平（打开某设备电源或主控电源）
+    gpio_config_t on_off_gpio_config = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = 1ULL << ON_OFF | 1ULL << Power_CTRL | 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT 
+    };
+    ESP_ERROR_CHECK(gpio_config(&on_off_gpio_config));
+    gpio_set_level(ON_OFF, 1); // 打开 ON_OFF 电源（假定高电平有效）
+    gpio_set_level(Power_CTRL, 1); // 打开 ON_OFF 电源（假定高电平有效）
+    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, 0);  //打开屏幕电源和背光
+
     int ret=nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
@@ -115,27 +125,9 @@ void app_main(void)
     }
     user_device_init();
 
-    // 配置 ON_OFF 引脚为输出模式，并初始化为高电平（打开某设备电源或主控电源）
-    gpio_config_t on_off_gpio_config = {
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << ON_OFF | 1ULL << Power_CTRL
-    };
-    ESP_ERROR_CHECK(gpio_config(&on_off_gpio_config));
-    gpio_set_level(ON_OFF, 1); // 打开 ON_OFF 电源（假定高电平有效）
-    gpio_set_level(Power_CTRL, 1); // 打开 ON_OFF 电源（假定高电平有效）
-
     // 定义 LVGL 的绘制缓冲区和显示驱动结构体（静态，生命周期和主函数一致）
     static lv_disp_draw_buf_t disp_buf; // LVGL 的绘图缓冲区对象
     static lv_disp_drv_t disp_drv;      // LVGL 的显示驱动结构体
-
-    ESP_LOGI(TAG, "Turn off LCD backlight");
-    // 配置 LCD 背光引脚为输出，准备后续点亮背光
-    gpio_config_t bk_gpio_config = {
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT
-    };
-    ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
-
     ESP_LOGI(TAG, "Initialize SPI bus");
     // SPI 总线配置（连接 LCD）
     spi_bus_config_t buscfg = {
@@ -170,6 +162,7 @@ void app_main(void)
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,  // 复位引脚
+        // .reset_gpio_num = -1,
         .rgb_endian = LCD_RGB_ENDIAN_RGB,           // RGB 色彩顺序
         .bits_per_pixel = 16,                       // 每像素 16 位
     };
@@ -179,15 +172,11 @@ void app_main(void)
     // 初始化 LCD 面板
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));                // 复位 LCD
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));                 // 初始化 LCD
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 34));       // 设置 LCD 画面偏移 gap（某些屏幕实际显示有像素偏移）
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
 
-    // // 可选：在开背光/打开显示之前先显示图案，避免开机一瞬间花屏
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false));    // 打开 LCD 显示
-
-    ESP_LOGI(TAG, "Turn on LCD backlight");
-    // gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL); // 点亮背光
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init(); // 初始化 LVGL 核心库
@@ -221,7 +210,6 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000)); // 定时器单位是微秒
     user_key_init();
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL); // 点亮背光
 
     ui_msg_queue = xQueueCreate(10, sizeof(ui_msg_t));
     ui_msg_t msg;
@@ -240,6 +228,7 @@ void app_main(void)
     // example_lvgl_demo_ui(disp); // 可选：自定义 demo
     // lv_demo_music(); // LVGL 自带音乐播放器 demo
     ui_init();
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
     // lv_example_gif2();
     // 主循环，不断调用 LVGL 任务处理函数（定时驱动 LVGL 刷新和事件处理）
     while (1) {
