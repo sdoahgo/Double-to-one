@@ -8,6 +8,10 @@ extern "C"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "ui.h"
+
+extern SemaphoreHandle_t i2c_mutex;
+
 
 #define  TOW_modes 0 //定义为0，是温度，定义为1是TDS
 typedef struct 
@@ -27,12 +31,17 @@ typedef enum{
 typedef struct 
 {
     ui_msg_type_t type;
-    union {
-        int16_t temp_value;       // 4 字节（float类型，通常是4字节）
-        uint32_t Laser_value;
-        char alert_str[32];     // 32 字节（32个char，每个1字节）
-        // 其它数据（如有更大则按更大算）
-    } data;
+    // union {
+    //     int16_t temp_value;       // 4 字节（float类型，通常是4字节）
+    //     uint16_t TF_value;
+    //     char alert_str[32];     // 32 字节（32个char，每个1字节）
+    //     // 其它数据（如有更大则按更大算）
+    // } data;
+    int16_t temp_value; 
+    #ifdef USE_TDS
+    uint16_t TF_DIST_value;
+    uint16_t TF_AMP_value;
+    #endif
 }ui_msg_t;
 
 

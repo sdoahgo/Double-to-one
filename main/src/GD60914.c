@@ -1,5 +1,6 @@
 #include "GD60914.h"
 
+SemaphoreHandle_t i2c_mutex;
 
 esp_err_t myi2c_master_GD60914_init(void)
 {
@@ -49,6 +50,7 @@ esp_err_t GD60914_read(uint8_t reg, uint8_t *data, uint8_t length)
 
 void GD60914_Init(void)
 {
+    i2c_mutex = xSemaphoreCreateMutex();
     esp_err_t error = myi2c_master_GD60914_init();
     ESP_LOGI(TAG1,"1111%s",esp_err_to_name(error));
     printf("1111111\n");
@@ -57,24 +59,29 @@ void GD60914_Init(void)
 
 void GD60914_task(void *pvParameters)
 {
-    GD60914_Init();
+    // GD60914_Init();
     int16_t temperature = 0;
     float temperature_value =0;
     uint8_t GD60914_data[2]={0};
     while (1)
     {
-        esp_err_t ret = GD60914_read(0x1F,GD60914_data,2);
+        if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
+            esp_err_t ret = GD60914_read(0x1F,GD60914_data,2);
+            xSemaphoreGive(i2c_mutex);
+        }
         temperature = (GD60914_data[1]<<8) | (GD60914_data[0]) ;
-        printf("0x1F :%x\n",temperature);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        
-        ret = GD60914_read(0x1C,GD60914_data,2);
+        // printf("0x1F :%x\n",temperature);
+        vTaskDelay(pdMS_TO_TICKS(500));
+        if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
+            esp_err_t ret = GD60914_read(0x1C,GD60914_data,2);
+            xSemaphoreGive(i2c_mutex);
+        }
         temperature = ((GD60914_data[1]<<8) | GD60914_data[0]);
         temperature_value = temperature/10.0; 
-        printf("0x1C :%d %.1f\n",temperature,temperature_value);
+        // printf("0x1C :%d %.1f\n",temperature,temperature_value);
         ui_msg_t msg = {
             .type = UI_MSG_UPDATE_TEMP,
-            .data.temp_value = temperature,
+            .temp_value = temperature,
         };
         xQueueSend(ui_msg_queue, &msg, portMAX_DELAY);
     }

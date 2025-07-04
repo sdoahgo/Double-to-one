@@ -16,7 +16,6 @@
 #include "TF_Luna.h"
 #include "esp_lcd_gc9307.h"
 #include "lv_demos.h"
-#include "ui.h"
 #include "user_hal.h"
 
 
@@ -184,8 +183,8 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
 
-    // 可选：在开背光/打开显示之前先显示图案，避免开机一瞬间花屏
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
+    // // 可选：在开背光/打开显示之前先显示图案，避免开机一瞬间花屏
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false));    // 打开 LCD 显示
 
     ESP_LOGI(TAG, "Turn on LCD backlight");
     // gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL); // 点亮背光
@@ -228,11 +227,15 @@ void app_main(void)
     ui_msg_t msg;
     // TaskHandle_t GD60914_task_Handler;
     // UBaseType_t GD60914_task_stack;
-    xTaskCreate(GD60914_task, "GD60914_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+4), NULL);
+    GD60914_Init();
+
     #ifdef USE_TDS
-    xTaskCreate(TF_Luna_task, "TF_Luna_task", (1024 * 4), (void *)NULL, (tskIDLE_PRIORITY+5), NULL);
+        TF_Luna_init();
     #endif
+
+    xTaskCreate(GD60914_task, "GD60914_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+4), NULL);
     ESP_LOGI(TAG, "Display LVGL Meter Widget"); 
+    // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
     // 显示 LVGL 界面，可以切换不同的 LVGL 界面 demo
     // example_lvgl_demo_ui(disp); // 可选：自定义 demo
     // lv_demo_music(); // LVGL 自带音乐播放器 demo
@@ -269,7 +272,7 @@ void gui_task_key_callback(uint8_t *event)
             switch (Screens_ID)
             {
             case SCREEN_ID_CALIBRATION_PAGE:
-                lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xffa851ff), LV_PART_MAIN | LV_STATE_DEFAULT);
                 break;
             
             default:
@@ -292,10 +295,10 @@ void gui_task_key_callback(uint8_t *event)
             user_save_sys_evn(&SYS_DATA);
             if(SYS_DATA.language_id){//英文
                 lv_obj_set_style_bg_color(objects.chinese_bt, lv_color_hex(0xff505050), LV_PART_MAIN | LV_STATE_DEFAULT);
-                lv_obj_set_style_bg_color(objects.engilsh_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(objects.engilsh_bt, lv_color_hex(0xffa851ff), LV_PART_MAIN | LV_STATE_DEFAULT);
             }   
             else{//中文
-                lv_obj_set_style_bg_color(objects.chinese_bt, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+                lv_obj_set_style_bg_color(objects.chinese_bt, lv_color_hex(0xffa851ff), LV_PART_MAIN | LV_STATE_DEFAULT);
                 lv_obj_set_style_bg_color(objects.engilsh_bt, lv_color_hex(0xff505050), LV_PART_MAIN | LV_STATE_DEFAULT);
             }
             #ifdef USE_TEMP
@@ -328,7 +331,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
     switch (msg->type)
     {
     case UI_MSG_UPDATE_TEMP:
-    int temp_f_times100 = msg->data.temp_value * 18 + 3200;//将摄氏度的10倍，转换成华氏度并100倍
+    int temp_f_times100 = msg->temp_value * 18 + 3200;//将摄氏度的10倍，转换成华氏度并100倍
     int temp_f1 = temp_f_times100/100;
     int temp_f2 = temp_f_times100%100;
         switch (Screens_ID)
@@ -339,14 +342,14 @@ void gui_task_UI_callback(ui_msg_t *msg){
                 lv_obj_t *child2 = lv_obj_get_child(objects.tds_temp_container, 2);
                 lv_obj_t *child3 = lv_obj_get_child(objects.tds_temp_container, 3);
                 lv_obj_t *child4 = lv_obj_get_child(objects.tds_temp_container, 4);
-                if(msg->data.temp_value >=  1000)
+                if(msg->temp_value >=  1000)
                 {
-                    lv_label_set_text_fmt(child1,"%d.",msg->data.temp_value/10);
+                    lv_label_set_text_fmt(child1,"%d.",msg->temp_value/10);
                 }
                 else{
-                    lv_label_set_text_fmt(child1,"0%d.",msg->data.temp_value/10);
+                    lv_label_set_text_fmt(child1,"0%d.",msg->temp_value/10);
                 }
-                lv_label_set_text_fmt(child2,"%d0℃",msg->data.temp_value%10);
+                lv_label_set_text_fmt(child2,"%d0℃",msg->temp_value%10);
                 if(temp_f1 >= 100){
                     lv_label_set_text_fmt(child3,"%d.",temp_f1);    
                 }
@@ -363,13 +366,13 @@ void gui_task_UI_callback(ui_msg_t *msg){
             #endif
             #ifdef USE_TEMP
             case SCREEN_ID_MEASURE_TEMP:
-                if(msg->data.temp_value >=  1000){
-                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"%d.",msg->data.temp_value/10);    
+                if(msg->temp_value >=  1000){
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"%d.",msg->temp_value/10);    
                 }
                 else{
-                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"0%d.",msg->data.temp_value/10);
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"0%d.",msg->temp_value/10);
                 }
-                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,1),"%d0",msg->data.temp_value%10);
+                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,1),"%d0",msg->temp_value%10);
                 if(temp_f_times100>=10000){
                     lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"%.2f℉",(float)temp_f_times100 / 100.0f);     
                 }
@@ -384,8 +387,23 @@ void gui_task_UI_callback(ui_msg_t *msg){
         }
     break;
     case UI_MSG_UPDATE_850:
-        lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff2bf641), LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[5][SYS_DATA.language_id]);
+        // lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff2bf641), LV_PART_MAIN | LV_STATE_DEFAULT);
+        // lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[5][SYS_DATA.language_id]);
+        uint8_t hundreds = msg->TF_DIST_value / 100;   // 包含多少个100
+        uint8_t remainder = msg->TF_DIST_value % 100;  // 百位以下是多少
+        if(remainder < 10)
+        {
+            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,3), "0%d",remainder);
+        }
+        else
+        {
+            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,3), "%d", remainder);
+        }
+        if(hundreds < 10){
+            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,2), "0%d.", hundreds);
+        }else{
+            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,2), "%d.", hundreds);
+        }
         break;
     case UI_MSG_UPDATE_LANUAGE:
         /* code */

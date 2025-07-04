@@ -191,6 +191,7 @@ static esp_err_t panel_gc9307_reset(esp_lcd_panel_t *panel)
 
 static const gc9307_lcd_init_cmd_t vendor_specific_init_default[] = {
 //  {cmd, { data }, data_size, delay_ms}
+    {0x28, (uint8_t []){0x00}, 0, 0},
     {0xfe, (uint8_t []){0x00}, 0, 0},
     {0xef, (uint8_t []){0x00}, 0, 0},
     {0x36, (uint8_t []){0x68}, 1, 0},
