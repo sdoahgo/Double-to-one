@@ -21,7 +21,17 @@
 #define NACK_VAL                    0x1                   //不应答
 #define TAG1                         "I2C"
 
-void GD60914_Init(void);
+typedef struct GD60914_HANDLER
+{
+    uint8_t I2C_NUM;
+    uint8_t GD60914_ADDR;
+    esp_err_t (*read) (const struct GD60914_HANDLER *handle, uint8_t reg, uint8_t *data, uint8_t length)
+}GD60914_handler_t;
+
+extern GD60914_handler_t GD60914_handler;
+
+void myi2c_Init(void);
+esp_err_t GD60914_read(const struct GD60914_HANDLER *handle, uint8_t reg, uint8_t *data, uint8_t length);
 void GD60914_task(void *pvParameters);
 
 #endif

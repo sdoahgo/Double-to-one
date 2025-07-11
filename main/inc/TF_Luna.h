@@ -8,6 +8,7 @@
 #include "user_hal.h"
 
 
+#ifdef USE_TDS
 #define TF_Luna_addr                0x10                  //GD60914地址
 #define TF_WRITE_BIT                   I2C_MASTER_WRITE      //写：0
 #define TF_READ_BIT                    I2C_MASTER_READ       //读：1
@@ -61,10 +62,28 @@
 
 #define TF_TAG                         "TF_I2C"
 
-esp_err_t TF_Luna_read(uint8_t reg, uint8_t *data, uint8_t length);
-esp_err_t TF_Luna_write(uint8_t reg, uint8_t *data, uint8_t length);
-esp_err_t TF_Luna_write_byte(uint8_t reg, uint8_t data);
-void TF_Luna_init(void);
+typedef struct TF_Luna_HANDLER
+{
+    uint8_t IO_OUT;
+    uint8_t I2C_NUM;
+    uint8_t TF_ADDR;
+    void (*init)(const struct TF_Luna_HANDLER *handle);
+    esp_err_t (*read)(const struct TF_Luna_HANDLER *handle, uint8_t reg, uint8_t *data, uint8_t length);
+    esp_err_t (*write)(const struct TF_Luna_HANDLER *handle, uint8_t reg, uint8_t *data, uint8_t length);
+    esp_err_t (*write_byte)(const struct TF_Luna_HANDLER *handle, uint8_t reg, uint8_t data);
+}TF_Luna_handler_t;
+
+extern TF_Luna_handler_t TF_Luna_handler;
+
+esp_err_t TF_Luna_read(const struct TF_Luna_HANDLER *handle, uint8_t reg, uint8_t *data, uint8_t length);
+esp_err_t TF_Luna_write(const struct TF_Luna_HANDLER *handle, uint8_t reg, uint8_t *data, uint8_t length);
+esp_err_t TF_Luna_write_byte(const struct TF_Luna_HANDLER *handle, uint8_t reg, uint8_t data);
+void TF_Luna_init(const struct TF_Luna_HANDLER *handle);
 void TF_Luna_task(void *pvParameters);
+void driver_TF_Luna_init(void);
+
+
+
+#endif
 
 #endif

@@ -16,6 +16,7 @@
 #include "TF_Luna.h"
 #include "esp_lcd_gc9307.h"
 #include "lv_demos.h"
+#include "user_bat.h"
 #include "user_hal.h"
 
 
@@ -27,16 +28,24 @@ static const char *TAG = "example";
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (40 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  0
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
-#define EXAMPLE_PIN_NUM_SCLK           6
-#define EXAMPLE_PIN_NUM_MOSI           2
+// #define EXAMPLE_PIN_NUM_SCLK           6
+// #define EXAMPLE_PIN_NUM_MOSI           2
+// #define EXAMPLE_PIN_NUM_MISO           -1
+// #define EXAMPLE_PIN_NUM_LCD_DC         7
+// #define EXAMPLE_PIN_NUM_LCD_RST        8
+// #define EXAMPLE_PIN_NUM_LCD_CS         -1
+// #define EXAMPLE_PIN_NUM_BK_LIGHT       3
+
+#define EXAMPLE_PIN_NUM_SCLK           8
+#define EXAMPLE_PIN_NUM_MOSI           7
 #define EXAMPLE_PIN_NUM_MISO           -1
-#define EXAMPLE_PIN_NUM_LCD_DC         7
-#define EXAMPLE_PIN_NUM_LCD_RST        8
+#define EXAMPLE_PIN_NUM_LCD_DC         6
+#define EXAMPLE_PIN_NUM_LCD_RST        2
 #define EXAMPLE_PIN_NUM_LCD_CS         -1
 #define EXAMPLE_PIN_NUM_BK_LIGHT       3
 
 #define ON_OFF 0
-#define Power_CTRL 4
+#define Power_CTRL 5
 
 // 水平和垂直方向的像素数
 #define EXAMPLE_LCD_H_RES              320//172
@@ -215,14 +224,18 @@ ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false));
     ui_msg_t msg;
     // TaskHandle_t GD60914_task_Handler;
     // UBaseType_t GD60914_task_stack;
-    GD60914_Init();
+    myi2c_Init();
 
     #ifdef USE_TDS
-        TF_Luna_init();
+        driver_TF_Luna_init();
     #endif
     bool flags = false;
     xTaskCreate(GD60914_task, "GD60914_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+4), NULL);
+    xTaskCreate(bat_task, "bat_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+3), NULL);
     ESP_LOGI(TAG, "Display LVGL Meter Widget"); 
+
+
+
     // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
     // 显示 LVGL 界面，可以切换不同的 LVGL 界面 demo
     // example_lvgl_demo_ui(disp); // 可选：自定义 demo
@@ -380,6 +393,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             break;
         }
     break;
+    #ifdef USE_TDS
     case UI_MSG_UPDATE_850:
         // lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff2bf641), LV_PART_MAIN | LV_STATE_DEFAULT);
         // lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[5][SYS_DATA.language_id]);
@@ -399,6 +413,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,2), "%d.", hundreds);
         }
         break;
+    #endif
     case UI_MSG_UPDATE_LANUAGE:
         /* code */
         break;

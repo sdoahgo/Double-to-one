@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-
+void bat_task(void *pvParameters);
 
 
 #ifdef __cplusplus
