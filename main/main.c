@@ -14,7 +14,8 @@
 #include "user_key.h"
 #include "GD60914.h"
 #include "TF_Luna.h"
-#include "esp_lcd_gc9307.h"
+// #include "esp_lcd_gc9307.h"
+#include "esp_lcd_st7789v.h"
 #include "lv_demos.h"
 #include "user_bat.h"
 #include "user_hal.h"
@@ -50,6 +51,8 @@ static const char *TAG = "example";
 // 水平和垂直方向的像素数
 #define EXAMPLE_LCD_H_RES              320//172
 #define EXAMPLE_LCD_V_RES              172//320
+// #define EXAMPLE_LCD_H_RES              172
+// #define EXAMPLE_LCD_V_RES              320
 
 // Bit number used to represent command and parameter
 #define EXAMPLE_LCD_CMD_BITS           8
@@ -158,7 +161,7 @@ void app_main(void)
         .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ,       // SPI 时钟频率
         .lcd_cmd_bits = EXAMPLE_LCD_CMD_BITS,        // 命令位宽
         .lcd_param_bits = EXAMPLE_LCD_PARAM_BITS,    // 参数位宽
-        .spi_mode = 0,                              // SPI 模式0
+        .spi_mode = 3,                              // SPI 模式0
         .trans_queue_depth = 10,                     // 传输队列深度
         .on_color_trans_done = example_notify_lvgl_flush_ready, // 颜色传输完成回调
         .user_ctx = &disp_drv,                       // 用户上下文，传递 LVGL 显示驱动
@@ -176,16 +179,20 @@ void app_main(void)
         .bits_per_pixel = 16,                       // 每像素 16 位
     };
     //创建/初始化 GC9307 面板的驱动实例，为后续的 LCD 显示操作（如画图、刷新、配置方向等）做好准备。
-    ESP_ERROR_CHECK(esp_lcd_new_panel_gc9307(io_handle, &panel_config, &panel_handle));
+    // ESP_ERROR_CHECK(esp_lcd_new_panel_gc9307(io_handle, &panel_config, &panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_new_panel_st7789v(io_handle, &panel_config, &panel_handle));
 
     // 初始化 LCD 面板
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));                // 复位 LCD
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));                 // 初始化 LCD
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
+    // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 34));       // 设置 LCD 画面偏移 gap（某些屏幕实际显示有像素偏移）
-    ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
-    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
-ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
+    // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
+    esp_lcd_panel_swap_xy(panel_handle, true);
+    esp_lcd_panel_mirror(panel_handle, false, true);
+    // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
+    // ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init(); // 初始化 LVGL 核心库
