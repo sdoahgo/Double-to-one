@@ -104,6 +104,12 @@ void create_screen_measure_temp() {
                     lv_obj_set_pos(obj, 0, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                     lv_img_set_src(obj, &img_wifi);
+                    if(UI_icon.ble_icon){
+                        lv_obj_clear_flag(objects.wifi,LV_OBJ_FLAG_HIDDEN);
+                    }
+                    else{
+                        lv_obj_add_flag(objects.wifi,LV_OBJ_FLAG_HIDDEN);
+                    }
                 }
                 {
                     // BAT
@@ -206,6 +212,12 @@ void create_screen_language_page() {
                     lv_obj_set_pos(obj, 0, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                     lv_img_set_src(obj, &img_wifi);
+                    if(UI_icon.ble_icon){
+                        lv_obj_clear_flag(objects.wifi_1,LV_OBJ_FLAG_HIDDEN);
+                    }
+                    else{
+                        lv_obj_add_flag(objects.wifi_1,LV_OBJ_FLAG_HIDDEN);
+                    }
                 }
                 {
                     // BAT_1
@@ -288,6 +300,12 @@ void create_screen_calibration_page() {
                     lv_obj_set_pos(obj, 0, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                     lv_img_set_src(obj, &img_wifi);
+                    if(UI_icon.ble_icon){
+                        lv_obj_clear_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
+                    }
+                    else{
+                        lv_obj_add_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
+                    }
                 }
                 {
                     // BAT_2
@@ -498,6 +516,12 @@ void create_screen_about_page() {
                     lv_obj_set_pos(obj, 0, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                     lv_img_set_src(obj, &img_wifi);
+                    if(UI_icon.ble_icon){
+                        lv_obj_clear_flag(objects.wifi_3,LV_OBJ_FLAG_HIDDEN);
+                    }
+                    else{
+                        lv_obj_add_flag(objects.wifi_3,LV_OBJ_FLAG_HIDDEN);
+                    }
                 }
                 {
                     // BAT_3
@@ -651,6 +675,12 @@ void create_screen_measure_tds() {
                     lv_obj_set_pos(obj, 0, 0);
                     lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                     lv_img_set_src(obj, &img_wifi);
+                    if(UI_icon.ble_icon){
+                        lv_obj_clear_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
+                    }
+                    else{
+                        lv_obj_add_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
+                    }
                 }
                 {
                     // BAT_4

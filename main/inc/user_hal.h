@@ -13,7 +13,7 @@ extern "C"
 extern SemaphoreHandle_t i2c_mutex;
 
 
-#define  TOW_modes 0 //定义为0，是温度，定义为1是TDS
+
 typedef struct 
 {
     uint8_t language_id;
@@ -25,7 +25,8 @@ typedef enum{
     UI_MSG_UPDATE_TEMP,
     UI_MSG_UPDATE_850,
     UI_MSG_UPDATE_LANUAGE,
-    UI_MSG_UPDATE_STATE
+    UI_MSG_UPDATE_STATE,
+    UI_MSG_UPDATA_WIFI_BLE_ICON,
 }ui_msg_type_t;
 
 typedef struct 
@@ -44,6 +45,13 @@ typedef struct
     #endif
 }ui_msg_t;
 
+typedef struct 
+{
+    bool ble_icon;
+    bool charge_icon;
+    uint8_t bat_icon;
+}ui_icon_t;
+extern ui_icon_t UI_icon;
 
 // extern Sensor_Data sensors_data;
 extern QueueHandle_t ui_msg_queue;

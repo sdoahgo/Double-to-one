@@ -5,4 +5,4 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(esp32c3-idf_gc9307_lvgl)
+project(LEBREW_TDS_TEMP)

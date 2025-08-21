@@ -19,9 +19,11 @@
 #include "lv_demos.h"
 #include "user_bat.h"
 #include "user_hal.h"
+#include "user_ble.h"
 
 
 sys_data SYS_DATA;
+ui_icon_t UI_icon;
 QueueHandle_t ui_msg_queue = NULL; //UI任务队列
 static const char *TAG = "example";
 
@@ -137,6 +139,10 @@ void app_main(void)
     }
     user_device_init();
 
+    UI_icon.bat_icon = false;
+    UI_icon.bat_icon = 0;
+    UI_icon.charge_icon = false;
+
     // 定义 LVGL 的绘制缓冲区和显示驱动结构体（静态，生命周期和主函数一致）
     static lv_disp_draw_buf_t disp_buf; // LVGL 的绘图缓冲区对象
     // static lv_disp_drv_t disp_drv;      // LVGL 的显示驱动结构体
@@ -179,7 +185,6 @@ void app_main(void)
         .bits_per_pixel = 16,                       // 每像素 16 位
     };
     //创建/初始化 GC9307 面板的驱动实例，为后续的 LCD 显示操作（如画图、刷新、配置方向等）做好准备。
-    // ESP_ERROR_CHECK(esp_lcd_new_panel_gc9307(io_handle, &panel_config, &panel_handle));
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789v(io_handle, &panel_config, &panel_handle));
 
     // 初始化 LCD 面板
@@ -189,7 +194,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 34));       // 设置 LCD 画面偏移 gap（某些屏幕实际显示有像素偏移）
     // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
     esp_lcd_panel_swap_xy(panel_handle, true);
-    esp_lcd_panel_mirror(panel_handle, false, true);
+    esp_lcd_panel_mirror(panel_handle, true, false);
     // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
     // ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
@@ -225,8 +230,10 @@ void app_main(void)
     esp_timer_handle_t lvgl_tick_timer = NULL;
     ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000)); // 定时器单位是微秒
-    user_key_init();
 
+
+    user_key_init();
+    user_ble_init();
     ui_msg_queue = xQueueCreate(10, sizeof(ui_msg_t));
     ui_msg_t msg;
     // TaskHandle_t GD60914_task_Handler;
@@ -335,6 +342,9 @@ void gui_task_key_callback(uint8_t *event)
             break;
         }
         break; 
+    case USER_KEY_MULTIPLE_CLICK_IN_EVT:
+        switch_ota_and_reboot();
+        break;
     default:
         break;
     }
@@ -426,6 +436,30 @@ void gui_task_UI_callback(ui_msg_t *msg){
         break;
     case UI_MSG_UPDATE_STATE:
         /* code */
+        break;
+    case UI_MSG_UPDATA_WIFI_BLE_ICON:
+        if(UI_icon.ble_icon){
+            #ifdef USE_TEMP
+            lv_obj_clear_flag(objects.wifi,LV_OBJ_FLAG_HIDDEN);
+            #endif
+            lv_obj_clear_flag(objects.wifi_1,LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(objects.wifi_3,LV_OBJ_FLAG_HIDDEN);
+            #ifdef USE_TDS
+            lv_obj_clear_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
+            #endif
+        }
+        else{
+            #ifdef USE_TEMP
+            lv_obj_add_flag(objects.wifi,LV_OBJ_FLAG_HIDDEN);
+            #endif
+            lv_obj_add_flag(objects.wifi_1,LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(objects.wifi_3,LV_OBJ_FLAG_HIDDEN);
+            #ifdef USE_TDS
+            lv_obj_add_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
+            #endif
+        }
         break;
     default:
         break;

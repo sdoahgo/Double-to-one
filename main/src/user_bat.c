@@ -6,6 +6,9 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
+#include "driver/uart.h" 
+#include "user_hal.h"
+#include "user_ble.h"
 
 const static char *TAG_POWER = "BAT";
 #define ADC_ARR_SIZE 20
@@ -92,6 +95,27 @@ static int bat_adc_update(int adc_value)
 
 void bat_task(void *pvParameters)
 {
+
+    uart_config_t uart_config = {
+        .baud_rate = 115200,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_APB,
+    };
+    // 配置并安装UART驱动
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0));
+    // 配置UART参数
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
+    uint8_t temp_data1 [1*sizeof(float) + 3];
+    temp_data1[0] = 0xAA;
+    temp_data1[5] = 0xBB;
+    temp_data1[6] = 0x85;
+
+
+
+
     //-------------ADC1 Init---------------//
     adc_oneshot_unit_handle_t adc1_handle;
     adc_oneshot_unit_init_cfg_t init_config1 = {
@@ -110,15 +134,38 @@ void bat_task(void *pvParameters)
 
     int adc_raw = 0;
     int voltage = 0;
-    float filert_vol_1=0;
+    float filert_vol_1= 0.0f;
+    float last_voltage = 0.0f;
+    uint8_t vol_cnt = 0;
     while (1)
     {
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_4, &adc_raw));
         if (do_calibration1) {
+            if(last_voltage < filert_vol_1){
+                vol_cnt++;
+                if(vol_cnt == 3){
+                    UI_icon.charge_icon = true;
+                }
+            }
+
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, adc_raw, &voltage));//读取的ADC数值转换成电压
             filert_vol_1 = bat_adc_update(voltage);//滤波
             filert_vol_1 = filert_vol_1 * (144.2/44.2);
+            last_voltage = filert_vol_1;
+                            if(notify_state)
+                            {
+                                // char data_user[16];
+                                memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
+                                // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
+                                int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
+                                if(rct)
+                                {
+                                    ESP_LOGE("BLE", "BLE notify fail\n");
+                                }
+                            }
             printf("bat_mV =%.2f\n",filert_vol_1);
+            // memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
+            // uart_write_bytes(UART_NUM_0, (const char*)temp_data1, sizeof(temp_data1));
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
 
