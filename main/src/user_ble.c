@@ -56,21 +56,18 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         }
     },
     {
-        /* 设备信息服务 */
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,  // 服务类型，主服务
-        .uuid = BLE_UUID16_DECLARE(GATT_DEVICE_INFO_UUID),  // 设备信息服务的 UUID
-        .characteristics = (struct ble_gatt_chr_def[]){  // 设备信息服务的特征定义
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,  
+        .uuid = BLE_UUID16_DECLARE(GATT_DEVICE_INFO_UUID),  
+        .characteristics = (struct ble_gatt_chr_def[]){  
             {
-                /* 制造商名称特征 */
-                .uuid = BLE_UUID16_DECLARE(GATT_MANUFACTURER_NAME_UUID),  // 制造商名称特征 UUID
-                .access_cb = gatt_svr_chr_access_device_info,  // 访问回调函数
-                .flags = BLE_GATT_CHR_F_READ,  // 该特征支持读取
+                .uuid = BLE_UUID16_DECLARE(GATT_MANUFACTURER_NAME_UUID),  
+                .access_cb = gatt_svr_chr_access_device_info,  
+                .flags = BLE_GATT_CHR_F_READ, 
             },
             {
-                /* 型号编号特征 */
-                .uuid = BLE_UUID16_DECLARE(GATT_MODEL_NUMBER_UUID),  // 型号编号特征 UUID
-                .access_cb = gatt_svr_chr_access_device_info,  // 访问回调函数
-                .flags = BLE_GATT_CHR_F_READ,  // 该特征支持读取
+                .uuid = BLE_UUID16_DECLARE(GATT_MODEL_NUMBER_UUID),  
+                .access_cb = gatt_svr_chr_access_device_info,  
+                .flags = BLE_GATT_CHR_F_READ,  
             },
             { 0 }  // 结束标志
         }
@@ -78,20 +75,7 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     { 0 }  // 结束标志
 };
 
-/**
- * 处理GATT特征写操作，将从客户端传递来的数据从内存缓冲区（`mbuf`）复制到目标缓冲区。
- * 此函数确保数据的长度在合理范围内，并执行客户端请求的写操作。
- *
- * @param om         存储从客户端接收到的数据的内存缓冲区（`os_mbuf`）。
- * @param min_len    数据包的最小长度要求。如果接收到的数据小于该长度，则会返回错误。
- * @param max_len    数据包的最大长度要求。如果接收到的数据大于该长度，则会返回错误。
- * @param dst        目标缓冲区，数据会被复制到这个位置，通常是GATT服务器中相应特征值的存储位置。
- * @param len        一个指针，存储实际写入数据的长度。
- *
- * @return           0表示成功，非零表示失败。
- *                   返回 `BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN` 表示数据长度无效。
- *                   返回 `BLE_ATT_ERR_UNLIKELY` 表示不可预见的错误。
- */
+
 static int gatt_svr_write(struct os_mbuf *om, uint16_t min_len, uint16_t max_len,
                void *dst, uint16_t *len)
 {
@@ -109,7 +93,7 @@ static int gatt_svr_write(struct os_mbuf *om, uint16_t min_len, uint16_t max_len
         // 将数据从mbuf缓冲区复制到目标缓冲区
         rc = ble_hs_mbuf_to_flat(om, dst, max_len, len);
         if (rc != 0) {
-            return BLE_ATT_ERR_UNLIKELY;  // 如果复制过程出现问题，返回错误
+            return BLE_ATT_ERR_UNLIKELY;  
         }
         bool chang_ok = true;
         for (size_t i = 0; i < om_len; i++) {
@@ -126,128 +110,9 @@ static int gatt_svr_write(struct os_mbuf *om, uint16_t min_len, uint16_t max_len
         if(chang_ok && om_len >= 17)
         {
             printf("BLE_TESR-----------\n");
-            // setup_gui_running();
-            // switch (((uint8_t *)dst)[16])
-            // {
-            // case 1://含水率测量
-            //     if(device_ui_info.state.measure_start_MD == 0)
-            //     {
-            //        gui_task_msg_send(BLE_MD_measure,NULL,0,NULL,0);
-            //     //    BLE_flags.BLE_MD_measure = true;
-            //     }
-            //     break;
-            // case 2://水活度测量
-            //     if(device_ui_info.state.measure_start_AW == 0)
-            //     {
-            //        gui_task_msg_send(BLE_AW_measure,NULL,0,NULL,0);
-            //     //    BLE_flags.BLE_MD_measure = true;
-            //     }
-            //     break;   
-            // case 3://色度测量
-            //     if(device_ui_info.state.measure_start_SCA == 0)
-            //     {
-            //        gui_task_msg_send(BLE_RD_measure,NULL,0,NULL,0);
-            //     //    BLE_flags.BLE_MD_measure = true;
-            //     }
-            //     break;
-            // case 4://开启蜂鸣器
-            //     device_ui_info.state.buzzer = 1;
-            //     sys_data.buzzer = device_ui_info.state.buzzer;
-            //     user_save_sys_evn(&sys_data);
-            //     lv_event_send(prj_layer_cont,LV_EVENT_USER_CHANGED,NULL);
-            //     break;
-            // case 5://关闭蜂鸣器
-            //     device_ui_info.state.buzzer = 0;
-            //     sys_data.buzzer = device_ui_info.state.buzzer;
-            //     user_save_sys_evn(&sys_data);
-            //     lv_event_send(prj_layer_cont,LV_EVENT_USER_CHANGED,NULL);        
-            //     break;
-            // case 6://设置中文
-            //     gui_task_msg_send(BLE_LANGUAGE_CN,NULL,0,NULL,0);
-            //     break;
-            // case 7://设置英文
-            //     gui_task_msg_send(BLE_LANGUAGE_EN,NULL,0,NULL,0);
-            //     break;
-            // case 8://调节亮度
-            //     device_ui_info.value.brightness = ((uint8_t *)dst)[17];
-            //     sys_data.brightness = device_ui_info.value.brightness;
-            //     user_save_sys_evn(&sys_data);
-            //     user_set_led_bright(((uint8_t *)dst)[17]);
-            //     break;  
-            // case 9://息屏时间
-            //     device_ui_info.value.auto_sleep_duration = ((uint8_t *)dst)[17];
-            //     sys_data.auto_sleep_min = device_ui_info.value.auto_sleep_duration;
-            //     user_save_sys_evn(&sys_data);
-            //     break; 
-            // case 10://含水率校准
-            //     printf("device_ui_info.state.calibration_start_MD = %d\n",device_ui_info.state.calibration_start_MD);
-            //     if(device_ui_info.state.calibration_start_MD == 0)
-            //     {
-            //        gui_task_msg_send(BLE_M_zeroing,NULL,0,NULL,0);
-            //     }
-            //     break;        
-            // case 11://密度校准
-            //     printf("device_ui_info.state.calibration_start_MD = %d\n",device_ui_info.state.calibration_start_MD);
-            //     if(device_ui_info.state.calibration_start_MD == 0)
-            //     {
-            //        gui_task_msg_send(BLE_D_zeroing,NULL,0,NULL,0);
-            //     }
-            //     break;   
-            // case 12://水活校准
-            //     if(device_ui_info.state.calibration_start_AW == 0)
-            //     {
-            //        gui_task_msg_send(BLE_AW_zeroing,NULL,0,NULL,0);
-            //     }
-            //     break;   
-            // case 13://色度校准
-            //     if(device_ui_info.state.calibration_start_SCA == 0)
-            //     {
-            //        gui_task_msg_send(BLE_RD_zeroing,NULL,0,NULL,0);
-            //     }
-            //     break;  
-            // case 14://开启wifi
-            //     sys_data.work_mode = APP_MODE_FACTORY;
-            //     user_save_sys_evn(&sys_data);
-            //     // esp_restart();
-            //     gui_task_msg_send(USER_TEST_IN_EVT,NULL,0,NULL,0);
-            //         // 1. 停止主机任务
-            //     // tcp_client_init();
-            //     printf("--------=----------++++++++++++++\n");
-            //     // int stop = nimble_port_stop();
-            //     // if(stop!=1)
-            //     // {
-            //     //     printf("--------=----------++++++++++++++\n");
-            //     //     esp_err_t ret = nimble_port_deinit();
-            //     //     gui_task_msg_send(USER_TEST_IN_EVT,NULL,0,NULL,0);
-            //     // }
-            //     break; 
-            // case 15://更改WiFi
-            //     printf("Change WiFi\n");
-            //     char *hex_str = ((char *)dst) + 17;
-            //     printf("hex_str: %s\n", hex_str); // 检查HEX部分
-
-            //     char *command = strtok(hex_str,";");
-            //     while(command != NULL)
-            //     {
-            //         if (strncmp(command, "WIFI:", 5) == 0) {
-            //             sscanf(command+5,"%s",sys_data.WIFI_name);
-            //             printf("WIFI: %s\n",sys_data.WIFI_name);
-            //             user_save_sys_evn(&sys_data);
-            //         }
-            //         else if(strncmp(command, "SD:", 3) == 0){
-            //             sscanf(command+3,"%s",sys_data.WIFI_sd);
-            //             printf("SD: %s\n",sys_data.WIFI_name);
-            //             user_save_sys_evn(&sys_data);
-            //         }
-            //         command = strtok(NULL, ";");
-            //     }
-            //     break;    
-            // default:
-            //     break;
-            // }
         }
     }
-    return 0;  // 数据复制成功，返回成功
+    return 0;  
 }
 
 // 处理心率测量特征的访问
@@ -323,11 +188,6 @@ void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
     printf("gatt_svr_register_cb\n");
     switch (ctxt->op) {  // 根据操作类型来处理不同的情况
     case BLE_GATT_REGISTER_OP_SVC://服务的注册操作
-        // 注册服务操作
-        // 打印服务的 UUID 和句柄
-        // MODLOG_DFLT(DEBUG, "registered service %s with handle=%d\n",
-        //             ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),  // 获取并打印服务的 UUID
-        //             ctxt->svc.handle);  // 打印服务的句柄
         printf("registered service %s with handle=%d\n",ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
             ctxt->svc.handle);
         break;
@@ -407,25 +267,6 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg);
 // BLE 地址类型
 static uint8_t blehr_addr_type;
 
-// 用于模拟心跳的变量
-// static uint8_t heartrate = 90;
-
-/**
- * Utility function to log an array of bytes.
- * 用于打印字节数组的辅助函数
- */
-void print_bytes(const uint8_t *bytes, int len)
-{
-    int i;
-    for (i = 0; i < len; i++) {
-        MODLOG_DFLT(INFO, "%s0x%02x", i != 0 ? ":" : "", bytes[i]);
-    }
-}
-
-/**
- * Utility function to print BLE address.
- * 打印设备的BLE地址
- */
 void print_addr(const void *addr)
 {
     const uint8_t *u8p;
@@ -449,9 +290,6 @@ static void blehr_advertise(void)
     // 设置广告数据，包括标志、发射功率和设备名称
     memset(&fields, 0, sizeof(fields));  // 清零字段结构体，确保没有脏数据
 
-    // 设置广告标志：标志字段指定广告的类型及其特性
-    // BLE_HS_ADV_F_DISC_GEN: 设置为通用可发现性广告模式（设备可以被发现）
-    // BLE_HS_ADV_F_BREDR_UNSUP: 指定设备不支持 BR/EDR（传统蓝牙）
     fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
 
     // 设置发射功率级别字段：指定广告数据中是否包含发射功率级别
@@ -476,75 +314,15 @@ static void blehr_advertise(void)
     memset(&adv_params, 0, sizeof(adv_params));  // 清零广告参数结构体
 
     // 设置广告参数：
-    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;  // 设置为无定向连接模式（客户端可以随时连接）
-    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;  // 设置为通用发现模式（设备对任何设备可见）
+    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;  
+    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;  
 
-    // 启动广告
-    //指向 BLE GAP 事件回调函数 的指针。当广告过程完成时，或者有连接建立时，回调函数会被调用来处理相应的事件
     rc = ble_gap_adv_start(blehr_addr_type, NULL, BLE_HS_FOREVER, &adv_params, blehr_gap_event, NULL);
     if (rc != 0) {  // 如果广告启动失败
         MODLOG_DFLT(ERROR, "error enabling advertisement; rc=%d\n", rc);  // 输出错误信息
         return;  // 退出函数
     }
 }
-
-
-// /* 停止心率数据传输定时器 */
-// static void blehr_tx_hrate_stop(void)
-// {
-//     xTimerStop( blehr_tx_timer, 1000 / portTICK_PERIOD_MS );
-// }
-
-// /* 重置心率测量 */
-// static void blehr_tx_hrate_reset(void)
-// {
-//     int rc;
-
-//     // 重置定时器
-//     if (xTimerReset(blehr_tx_timer, 1000 / portTICK_PERIOD_MS ) == pdPASS) {
-//         rc = 0;
-//     } else {
-//         rc = 1;
-//     }
-
-//     assert(rc == 0);
-// }
-
-// /* 模拟心跳并将数据通知给客户端 */
-// static void blehr_tx_hrate(TimerHandle_t ev)
-// {
-//     static uint8_t hrm[2];
-//     int rc;
-//     struct os_mbuf *om;
-
-//     if (!notify_state) {
-//         // 如果客户端没有订阅通知，停止定时器并重置心率
-//         blehr_tx_hrate_stop();
-//         heartrate = 90;
-//         return;
-//     }
-
-//     // 心率数据
-//     hrm[0] = 0x06; // 传感器的接触
-//     hrm[1] = heartrate; // 模拟的心率数据
-
-//     // 模拟心跳
-//     heartrate++;
-//     if (heartrate == 160) {
-//         heartrate = 90;
-//     }
-
-//     // 创建数据包
-//     om = ble_hs_mbuf_from_flat(hrm, sizeof(hrm));
-
-//     // 向客户端发送通知
-    // rc = ble_gatts_notify_custom(conn_handle, hrs_hrm_handle, om);
-
-//     assert(rc == 0);
-
-//     // 重置心率测量定时器
-//     blehr_tx_hrate_reset();
-// }
 
 /* 处理 GAP 事件 */
 static int blehr_gap_event(struct ble_gap_event *event, void *arg)
@@ -554,13 +332,12 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg)
         {
             // 连接事件处理：成功或失败
             MODLOG_DFLT(INFO, "connection %s; status=%d\n",
-                        event->connect.status == 0 ? "established" : "failed",  // 如果状态为0，表示连接成功，否则连接失败
+                        event->connect.status == 0 ? "established" : "failed",
                         event->connect.status);
 
             if (event->connect.status != 0) {  // 如果连接失败
                 // 连接失败时，恢复广播，继续等待其他设备的连接
                 blehr_advertise();
-                printf("连接失败，重新广播\n");
             }
             printf("连接成功\n");
             conn_handle = event->connect.conn_handle;  // 保存连接句柄
@@ -574,7 +351,7 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg)
         case BLE_GAP_EVENT_DISCONNECT:  // 处理断开连接事件
         {
             printf("BLE连接失败--------------------------------------------------\n");
-            MODLOG_DFLT(INFO, "disconnect; reason=%d\n", event->disconnect.reason);  // 打印断开连接的原因
+            MODLOG_DFLT(INFO, "disconnect; reason=%d\n", event->disconnect.reason);
 
             // 断开连接时，恢复广播，等待其他设备的连接
             blehr_advertise();
@@ -587,9 +364,7 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg)
         }
         case BLE_GAP_EVENT_ADV_COMPLETE:  // 处理广告完成事件
         {
-            MODLOG_DFLT(INFO, "adv complete\n");  // 打印广告完成的日志
-
-            // 广告完成后重新开始广告，继续广播设备信息
+            MODLOG_DFLT(INFO, "adv complete\n");  
             blehr_advertise();
             break;
         }
@@ -602,10 +377,8 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg)
             // 处理心率服务（HRM）的订阅事件
             if (event->subscribe.attr_handle == hrs_hrm_handle && event->subscribe.cur_notify) {  // 如果是心率测量的订阅事件
                 notify_state = event->subscribe.cur_notify;  // 更新当前通知状态
-                // blehr_tx_hrate_reset();  // 重置心率数据传输定时器
             } else {  // 其他订阅事件
                 notify_state = event->subscribe.cur_notify;  // 更新当前通知状态
-                // blehr_tx_hrate_stop();  // 停止心率数据传输定时器
             }
             ESP_LOGI("BLE_GAP_SUBSCRIBE_EVENT", "conn_handle from subscribe=%d", conn_handle);  // 打印连接句柄
             break;
@@ -633,23 +406,15 @@ static void blehr_on_sync(void)
     assert(rc == 0);  // 确保推断地址类型成功
 
     uint8_t addr_val[6] = {0};  // 用于存储设备地址的数组
-    // 获取推断出的 BLE 地址，并将其存储在 addr_val 中
     rc = ble_hs_id_copy_addr(blehr_addr_type, addr_val, NULL);
 
     // 打印设备地址
     MODLOG_DFLT(INFO, "Device Address: ");
-    print_addr(addr_val);  // 调用 print_addr 函数打印地址
+    print_addr(addr_val);
     MODLOG_DFLT(INFO, "\n");
 
     /* 开始 BLE 广播 */
     blehr_advertise();
-    // int err = ble_att_set_preferred_mtu(CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU);
-    // if(err){
-    //     MODLOG_ERROR(INFO,"MTU defeated");
-    // }
-    // else{
-    //     MODLOG_ERROR(INFO,"MTU seccessful");
-    // }
 }
 
 // 处理 BLE 设备重置事件
@@ -664,10 +429,7 @@ void blehr_host_task(void *param)
 {
     ESP_LOGI(tag, "BLE Host Task Started");
     
-    /* 该函数将一直运行，直到调用 nimble_port_stop() 停止 NimBLE 主机任务 */
     nimble_port_run();
-
-    // 停止 NimBLE 主机栈并清理资源
     nimble_port_freertos_deinit();
 }
 
@@ -676,43 +438,17 @@ void blehr_host_task(void *param)
 void user_ble_init(void)
 {
     int rc;
-
-    // /* 初始化 NVS — 用于存储 PHY 校准数据 */
-    // esp_err_t ret = nvs_flash_init();
-    // if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    //     // 如果 NVS 没有足够空间或版本不匹配，则擦除并重新初始化 NVS
-    //     ESP_ERROR_CHECK(nvs_flash_erase());
-    //     ret = nvs_flash_init();
-    // }
-    // ESP_ERROR_CHECK(ret); // 确保 NVS 初始化成功
-
-    /* 初始化 NimBLE 协议栈 */
     esp_err_t ret = nimble_port_init();
     if (ret != ESP_OK) {
-        // 如果 NimBLE 初始化失败，打印错误信息并退出
         MODLOG_DFLT(ERROR, "Failed to init nimble %d \n", ret);
         return;
     }
-
-    /* 配置 NimBLE 主机设置 */
-    // 设置同步回调函数，用于处理 BLE 主机栈同步时的操作
     ble_hs_cfg.sync_cb = blehr_on_sync;
-    // 设置重置回调函数，用于处理 BLE 主机栈重置时的操作
     ble_hs_cfg.reset_cb = blehr_on_reset;
-
-    /* 创建一个定时器用于周期性发送心率数据 */
-    // 每秒调用一次 `blehr_tx_hrate` 函数，传输心率数据
-    // blehr_tx_timer = xTimerCreate("blehr_tx_timer", pdMS_TO_TICKS(1000), pdTRUE, (void *)0, blehr_tx_hrate);
-
-    // 初始化 GATT 服务器，注册心率测量服务
     rc = gatt_svr_init();
     assert(rc == 0); // 确保 GATT 服务器初始化成功
-
-    /* 设置设备的默认名称 */
     rc = ble_svc_gap_device_name_set(device_name);
     assert(rc == 0); // 确保设备名称设置成功
-
-    /* 启动任务，开始处理 BLE 主机事件 */
     nimble_port_freertos_init(blehr_host_task);
 }
 

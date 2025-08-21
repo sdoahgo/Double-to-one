@@ -9,6 +9,11 @@ extern "C" {
 
 extern const lv_img_dsc_t img_wifi;
 extern const lv_img_dsc_t img_bat;
+extern const lv_img_dsc_t bat5Percent;
+extern const lv_img_dsc_t bat20Percent;
+extern const lv_img_dsc_t bat40Percent;
+extern const lv_img_dsc_t bat60Percent;
+extern const lv_img_dsc_t bat80Percent;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T

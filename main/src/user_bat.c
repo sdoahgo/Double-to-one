@@ -114,8 +114,6 @@ void bat_task(void *pvParameters)
     temp_data1[6] = 0x85;
 
 
-
-
     //-------------ADC1 Init---------------//
     adc_oneshot_unit_handle_t adc1_handle;
     adc_oneshot_unit_init_cfg_t init_config1 = {
@@ -147,22 +145,21 @@ void bat_task(void *pvParameters)
                     UI_icon.charge_icon = true;
                 }
             }
-
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, adc_raw, &voltage));//读取的ADC数值转换成电压
             filert_vol_1 = bat_adc_update(voltage);//滤波
             filert_vol_1 = filert_vol_1 * (144.2/44.2);
             last_voltage = filert_vol_1;
-                            if(notify_state)
-                            {
-                                // char data_user[16];
-                                memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
-                                // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
-                                int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
-                                if(rct)
-                                {
-                                    ESP_LOGE("BLE", "BLE notify fail\n");
-                                }
-                            }
+            if(notify_state)
+            {
+                // char data_user[16];
+                memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
+                // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
+                int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
+                if(rct)
+                {
+                    ESP_LOGE("BLE", "BLE notify fail\n");
+                }
+            }
             printf("bat_mV =%.2f\n",filert_vol_1);
             // memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
             // uart_write_bytes(UART_NUM_0, (const char*)temp_data1, sizeof(temp_data1));

@@ -9,12 +9,10 @@
 #include "esp_log.h"
 #include "lvgl.h"
 #include "nvs_flash.h"
-
 #include <math.h>
 #include "user_key.h"
 #include "GD60914.h"
 #include "TF_Luna.h"
-// #include "esp_lcd_gc9307.h"
 #include "esp_lcd_st7789v.h"
 #include "lv_demos.h"
 #include "user_bat.h"
@@ -24,20 +22,14 @@
 
 sys_data SYS_DATA;
 ui_icon_t UI_icon;
-QueueHandle_t ui_msg_queue = NULL; //UI任务队列
+QueueHandle_t ui_msg_queue = NULL; 
 static const char *TAG = "example";
 
 #define LCD_HOST  SPI2_HOST
 #define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (40 * 1000 * 1000)
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  0
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
-// #define EXAMPLE_PIN_NUM_SCLK           6
-// #define EXAMPLE_PIN_NUM_MOSI           2
-// #define EXAMPLE_PIN_NUM_MISO           -1
-// #define EXAMPLE_PIN_NUM_LCD_DC         7
-// #define EXAMPLE_PIN_NUM_LCD_RST        8
-// #define EXAMPLE_PIN_NUM_LCD_CS         -1
-// #define EXAMPLE_PIN_NUM_BK_LIGHT       3
+
 
 #define EXAMPLE_PIN_NUM_SCLK           8
 #define EXAMPLE_PIN_NUM_MOSI           7
@@ -53,8 +45,6 @@ static const char *TAG = "example";
 // 水平和垂直方向的像素数
 #define EXAMPLE_LCD_H_RES              320//172
 #define EXAMPLE_LCD_V_RES              172//320
-// #define EXAMPLE_LCD_H_RES              172
-// #define EXAMPLE_LCD_V_RES              320
 
 // Bit number used to represent command and parameter
 #define EXAMPLE_LCD_CMD_BITS           8
@@ -127,9 +117,9 @@ void app_main(void)
         .pin_bit_mask = 1ULL << ON_OFF | 1ULL << Power_CTRL | 1ULL << EXAMPLE_PIN_NUM_BK_LIGHT 
     };
     ESP_ERROR_CHECK(gpio_config(&on_off_gpio_config));
-    gpio_set_level(ON_OFF, 1); // 打开 ON_OFF 电源（假定高电平有效）
-    gpio_set_level(Power_CTRL, 1); // 打开 ON_OFF 电源（假定高电平有效）
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, 0);  //打开屏幕电源和背光
+    gpio_set_level(ON_OFF, 1); 
+    gpio_set_level(Power_CTRL, 1);
+    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, 0); 
 
     int ret=nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
@@ -162,15 +152,15 @@ void app_main(void)
     // SPI panel IO 配置
     esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_io_spi_config_t io_config = {
-        .dc_gpio_num = EXAMPLE_PIN_NUM_LCD_DC,       // 数据/命令切换引脚
-        .cs_gpio_num = EXAMPLE_PIN_NUM_LCD_CS,       // SPI 片选引脚
-        .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ,       // SPI 时钟频率
-        .lcd_cmd_bits = EXAMPLE_LCD_CMD_BITS,        // 命令位宽
-        .lcd_param_bits = EXAMPLE_LCD_PARAM_BITS,    // 参数位宽
-        .spi_mode = 3,                              // SPI 模式0
-        .trans_queue_depth = 10,                     // 传输队列深度
-        .on_color_trans_done = example_notify_lvgl_flush_ready, // 颜色传输完成回调
-        .user_ctx = &disp_drv,                       // 用户上下文，传递 LVGL 显示驱动
+        .dc_gpio_num = EXAMPLE_PIN_NUM_LCD_DC,       
+        .cs_gpio_num = EXAMPLE_PIN_NUM_LCD_CS,      
+        .pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ,       
+        .lcd_cmd_bits = EXAMPLE_LCD_CMD_BITS,        
+        .lcd_param_bits = EXAMPLE_LCD_PARAM_BITS,    
+        .spi_mode = 3,                              
+        .trans_queue_depth = 10,                     
+        .on_color_trans_done = example_notify_lvgl_flush_ready, 
+        .user_ctx = &disp_drv,                       
     };
     // 挂载 LCD 到 SPI 总线
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io_config, &io_handle));
@@ -188,43 +178,36 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789v(io_handle, &panel_config, &panel_handle));
 
     // 初始化 LCD 面板
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));                // 复位 LCD
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));                 // 初始化 LCD
-    // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
-    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 34));       // 设置 LCD 画面偏移 gap（某些屏幕实际显示有像素偏移）
-    // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, true));
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));                
+    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));                
+    ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, 0, 34));       
     esp_lcd_panel_swap_xy(panel_handle, true);
     esp_lcd_panel_mirror(panel_handle, true, false);
-    // ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));  // 镜像（X轴正向，Y轴不镜像）
-    // ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, 0));      // 反转颜色（有些屏幕显示颜色和代码逻辑相反）
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, false)); 
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init(); // 初始化 LVGL 核心库
 
-    // 分配 LVGL 使用的双缓冲区（DMA 内存），建议至少为屏幕的 1/10 大小
     lv_color_t *buf1 = heap_caps_malloc(EXAMPLE_LCD_H_RES * 20 * sizeof(lv_color_t), MALLOC_CAP_DMA);
     assert(buf1);
     lv_color_t *buf2 = heap_caps_malloc(EXAMPLE_LCD_H_RES * 20 * sizeof(lv_color_t), MALLOC_CAP_DMA);
     assert(buf2);
-    // 初始化 LVGL 绘图缓冲区，支持双缓冲（提升性能）
     lv_disp_draw_buf_init(&disp_buf, buf1, buf2, EXAMPLE_LCD_H_RES * 20);
 
     ESP_LOGI(TAG, "Register display driver to LVGL");
     // 初始化并注册 LVGL 的显示驱动（重要！）
-    lv_disp_drv_init(&disp_drv);               // 初始化结构体为默认值
-    disp_drv.hor_res = EXAMPLE_LCD_H_RES;      // 水平分辨率
-    disp_drv.ver_res = EXAMPLE_LCD_V_RES;      // 垂直分辨率
-    disp_drv.flush_cb = example_lvgl_flush_cb; // 刷新回调函数，将 LVGL 的画面数据写到屏幕
-    disp_drv.drv_update_cb = example_lvgl_port_update_callback; // 可选，驱动更新回调
-    disp_drv.draw_buf = &disp_buf;             // LVGL 绘图缓冲区
-    disp_drv.user_data = panel_handle;         // 传递 panel_handle 作为用户数据
-    lv_disp_t *disp = lv_disp_drv_register(&disp_drv); // 注册显示驱动
+    lv_disp_drv_init(&disp_drv);               
+    disp_drv.hor_res = EXAMPLE_LCD_H_RES;     
+    disp_drv.ver_res = EXAMPLE_LCD_V_RES;      
+    disp_drv.flush_cb = example_lvgl_flush_cb; 
+    disp_drv.drv_update_cb = example_lvgl_port_update_callback; 
+    disp_drv.draw_buf = &disp_buf;            
+    disp_drv.user_data = panel_handle;         
+    lv_disp_t *disp = lv_disp_drv_register(&disp_drv); 
 
     ESP_LOGI(TAG, "Install LVGL tick timer");
-    // 配置 LVGL 的 Tick 计时器（LVGL 需要定期更新 tick，驱动动画/刷新）
     const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &example_increase_lvgl_tick,              // 回调函数，每隔一段时间调用一次
+        .callback = &example_increase_lvgl_tick,             
         .name = "lvgl_tick"
     };
     esp_timer_handle_t lvgl_tick_timer = NULL;
@@ -236,8 +219,6 @@ void app_main(void)
     user_ble_init();
     ui_msg_queue = xQueueCreate(10, sizeof(ui_msg_t));
     ui_msg_t msg;
-    // TaskHandle_t GD60914_task_Handler;
-    // UBaseType_t GD60914_task_stack;
     myi2c_Init();
 
     #ifdef USE_TDS
@@ -248,16 +229,8 @@ void app_main(void)
     xTaskCreate(bat_task, "bat_task", (1024 * 2), (void *)NULL, (tskIDLE_PRIORITY+3), NULL);
     ESP_LOGI(TAG, "Display LVGL Meter Widget"); 
 
-
-
-    // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
-    // 显示 LVGL 界面，可以切换不同的 LVGL 界面 demo
-    // example_lvgl_demo_ui(disp); // 可选：自定义 demo
-    // lv_demo_music(); // LVGL 自带音乐播放器 demo
     ui_init();
-    // ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));    // 打开 LCD 显示
-    // lv_example_gif2();
-    // 主循环，不断调用 LVGL 任务处理函数（定时驱动 LVGL 刷新和事件处理）
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10)); // 延时 10ms，降低本任务优先级
         if(flags == false)
@@ -271,8 +244,6 @@ void app_main(void)
         if(xQueueReceive(ui_msg_queue, &msg, 0)){
             gui_task_UI_callback(&msg);
         }
-        // GD60914_task_stack =  uxTaskGetStackHighWaterMark(GD60914_task_Handler);
-        // printf( "Task High Water Mark: %u\n", GD60914_task_stack );
         lv_timer_handler();            // 处理 LVGL 相关任务（刷新、动画等）
     }
 }
@@ -334,8 +305,6 @@ void gui_task_key_callback(uint8_t *event)
             lv_label_set_text(lv_obj_get_child(objects.hardware_version_panel,1), UI_STRING[8][SYS_DATA.language_id]);
             break;
         case SCREEN_ID_CALIBRATION_PAGE:
-            // lv_obj_add_state(objects.calibration_bt, LV_STATE_PRESSED);
-            // lv_obj_clear_state(objects.calibration_bt, LV_STATE_PRESSED);
             lv_event_send(objects.calibration_bt, LV_EVENT_CLICKED, NULL);
             break;
         default:
@@ -412,8 +381,6 @@ void gui_task_UI_callback(ui_msg_t *msg){
     break;
     #ifdef USE_TDS
     case UI_MSG_UPDATE_850:
-        // lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff2bf641), LV_PART_MAIN | LV_STATE_DEFAULT);
-        // lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[5][SYS_DATA.language_id]);
         uint8_t hundreds = msg->TF_DIST_value / 100;   // 包含多少个100
         uint8_t remainder = msg->TF_DIST_value % 100;  // 百位以下是多少
         if(remainder < 10)
