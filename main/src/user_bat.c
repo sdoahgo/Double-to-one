@@ -108,10 +108,10 @@ void bat_task(void *pvParameters)
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0));
     // 配置UART参数
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_0, &uart_config));
-    uint8_t temp_data1 [1*sizeof(float) + 3];
-    temp_data1[0] = 0xAA;
-    temp_data1[5] = 0xBB;
-    temp_data1[6] = 0x85;
+    // uint8_t temp_data1 [2*sizeof(float) + 3];
+    // temp_data1[0] = 0xAA;
+    // temp_data1[5] = 0xBB;
+    // temp_data1[6] = 0x85;
 
 
     //-------------ADC1 Init---------------//
@@ -149,17 +149,17 @@ void bat_task(void *pvParameters)
             filert_vol_1 = bat_adc_update(voltage);//滤波
             filert_vol_1 = filert_vol_1 * (144.2/44.2);
             last_voltage = filert_vol_1;
-            if(notify_state)
-            {
-                // char data_user[16];
-                memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
-                // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
-                int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
-                if(rct)
-                {
-                    ESP_LOGE("BLE", "BLE notify fail\n");
-                }
-            }
+            // if(notify_state)
+            // {
+            //     // char data_user[16];
+            //     memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
+            //     // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
+            //     int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
+            //     if(rct)
+            //     {
+            //         ESP_LOGE("BLE", "BLE notify fail\n");
+            //     }
+            // }
             printf("bat_mV =%.2f\n",filert_vol_1);
             // memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
             // uart_write_bytes(UART_NUM_0, (const char*)temp_data1, sizeof(temp_data1));

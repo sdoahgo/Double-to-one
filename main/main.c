@@ -323,10 +323,10 @@ void gui_task_key_callback(uint8_t *event)
 void gui_task_UI_callback(ui_msg_t *msg){
     switch (msg->type)
     {
-    case UI_MSG_UPDATE_TEMP:
-    int temp_f_times100 = msg->temp_value * 18 + 3200;//将摄氏度的10倍，转换成华氏度并100倍
-    int temp_f1 = temp_f_times100/100;
-    int temp_f2 = temp_f_times100%100;
+        case UI_MSG_UPDATE_TEMP:
+        int temp_f_times100 = msg->temp_value * 18 + 3200;//将摄氏度的10倍，转换成华氏度并100倍
+        int temp_f1 = temp_f_times100/100;
+        int temp_f2 = temp_f_times100%100;
         switch (Screens_ID)
         {
             #ifdef USE_TDS

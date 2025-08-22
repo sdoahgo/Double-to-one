@@ -1,4 +1,6 @@
 #include "GD60914.h"
+#include "user_hal.h"
+#include "user_ble.h"
 
 SemaphoreHandle_t i2c_mutex;
 
@@ -62,12 +64,16 @@ void myi2c_Init(void)
     printf("1111111\n");
 }
 
-
+volatile float GD60914_TEMP = 0.0f;
 void GD60914_task(void *pvParameters)
 {
     int16_t temperature = 0;
     float temperature_value =0;
     uint8_t GD60914_data[2]={0};
+    // uint8_t temp_data1 [1*sizeof(float) + 3];
+    // temp_data1[0] = 0xAA;
+    // temp_data1[5] = 0xBB;
+    // temp_data1[6] = 0x85;
     while (1)
     {
         if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
@@ -82,11 +88,24 @@ void GD60914_task(void *pvParameters)
             xSemaphoreGive(i2c_mutex);
         }
         temperature = ((GD60914_data[1]<<8) | GD60914_data[0]);
-        temperature_value = temperature/10.0; 
+        // temperature_value = temperature/10.0; 
+        temperature_value = 1.7126926 + 1.05611670*temperature;
+        GD60914_TEMP = temperature_value / 10.0f;
         // printf("0x1C :%d %.1f\n",temperature,temperature_value);
+            // if(notify_state)
+            // {
+            //     // char data_user[16];
+            //     memcpy(&temp_data1[1], &temperature_value, sizeof(float));
+            //     // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
+            //     int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
+            //     if(rct)
+            //     {
+            //         ESP_LOGE("BLE", "BLE notify fail\n");
+            //     }
+            // }
         ui_msg_t msg = {
             .type = UI_MSG_UPDATE_TEMP,
-            .temp_value = temperature,
+            .temp_value = temperature_value,
         };
         xQueueSend(ui_msg_queue, &msg, portMAX_DELAY);
     }

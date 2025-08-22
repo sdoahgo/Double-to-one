@@ -1,6 +1,8 @@
 #include "TF_Luna.h"
 #include "ui.h"
 #include "driver/gpio.h"
+#include "user_hal.h"
+#include "user_ble.h"
 
 #ifdef USE_TDS
 static TaskHandle_t TF_Luna_task_handle = NULL;
@@ -76,12 +78,16 @@ void TF_Luna_init(const struct TF_Luna_HANDLER *handle)
     gpio_install_isr_service(0); // 参数0一般用默认
     gpio_isr_handler_add(handle->IO_OUT, gpio_isr_handler, (void*) handle->IO_OUT);
 }
-
+extern volatile float GD60914_TEMP;
 void TF_Luna_task(void *pvParameters)
 {
     uint8_t i =0;
     uint8_t datas[4] = {0};
     uint8_t data = 0;
+    uint8_t temp_data1 [1*sizeof(float) + 2*sizeof(uint16_t) + 3];
+    temp_data1[0] = 0xAA;
+    temp_data1[9] = 0xBB;
+    temp_data1[10] = 0x85;
     vTaskDelay(pdMS_TO_TICKS(500));
     if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
         esp_err_t err = TF_Luna_handler.read(&TF_Luna_handler, 0x28, &data, 1);
@@ -115,6 +121,19 @@ void TF_Luna_task(void *pvParameters)
         }
         uint16_t DIST = datas[1]<<8 | datas[0];
         uint16_t AMP =  datas[3]<<8 | datas[2];
+            if(notify_state)
+            {
+                // char data_user[16];
+                memcpy(&temp_data1[1], &GD60914_TEMP, sizeof(float));
+                memcpy(&temp_data1[5], &DIST, sizeof(uint16_t));
+                memcpy(&temp_data1[7], &AMP, sizeof(uint16_t));
+                // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
+                int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
+                if(rct)
+                {
+                    ESP_LOGE("BLE", "BLE notify fail\n");
+                }
+            }
         ui_msg_t msg = {
             .type = UI_MSG_UPDATE_850,
             .TF_DIST_value = DIST,
