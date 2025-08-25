@@ -18,7 +18,7 @@
 #include "user_bat.h"
 #include "user_hal.h"
 #include "user_ble.h"
-
+#include "images.h"
 
 sys_data SYS_DATA;
 ui_icon_t UI_icon;
@@ -335,44 +335,117 @@ void gui_task_UI_callback(ui_msg_t *msg){
                 lv_obj_t *child2 = lv_obj_get_child(objects.tds_temp_container, 2);
                 lv_obj_t *child3 = lv_obj_get_child(objects.tds_temp_container, 3);
                 lv_obj_t *child4 = lv_obj_get_child(objects.tds_temp_container, 4);
+                // if(msg->temp_value >=  1000)
+                // {
+                //     lv_label_set_text_fmt(child1,"%d.",msg->temp_value/10);
+                // }
+                // else{
+                //     lv_label_set_text_fmt(child1,"0%d.",msg->temp_value/10);
+                // }
+                // lv_label_set_text_fmt(child2,"%d0℃",msg->temp_value%10);
+                // if(temp_f1 >= 100){
+                //     lv_label_set_text_fmt(child3,"%d.",temp_f1);    
+                // }
+                // else{
+                //     lv_label_set_text_fmt(child3,"0%d.",temp_f1);
+                // }
+                // if(temp_f2 == 0){
+                //     lv_label_set_text(child4, "00℉");
+                // }
+                // else{
+                //     lv_label_set_text_fmt(child4,"%d℉",temp_f2);
+                // }
                 if(msg->temp_value >=  1000)
                 {
-                    lv_label_set_text_fmt(child1,"%d.",msg->temp_value/10);
+                    lv_obj_set_pos(child2, 57, 4);
+                    lv_obj_set_pos(child4, 57, 36);
                 }
-                else{
-                    lv_label_set_text_fmt(child1,"0%d.",msg->temp_value/10);
+                else if(msg->temp_value < 1000 && msg->temp_value >= 100)
+                {
+                    lv_obj_set_pos(child2, 45, 4);
+                    lv_obj_set_pos(child4, 45, 36);
                 }
-                lv_label_set_text_fmt(child2,"%d0℃",msg->temp_value%10);
-                if(temp_f1 >= 100){
-                    lv_label_set_text_fmt(child3,"%d.",temp_f1);    
+                else if(msg->temp_value < 100 && msg->temp_value >= 0)
+                {
+                    lv_obj_set_pos(child2, 33, 4);
+                    lv_obj_set_pos(child4, 33, 36);
                 }
-                else{
-                    lv_label_set_text_fmt(child3,"0%d.",temp_f1);
+                else if(msg->temp_value < 0 && msg->temp_value > -100)
+                {
+                    lv_obj_set_pos(child2, 45, 4);
+                    lv_obj_set_pos(child4, 45, 36);
                 }
-                if(temp_f2 == 0){
-                    lv_label_set_text(child4, "00℉");
+                else
+                {
+                    lv_obj_set_pos(child2, 57, 4);
+                    lv_obj_set_pos(child4, 45, 36);
                 }
-                else{
-                    lv_label_set_text_fmt(child4,"%d℉",temp_f2);
-                }
+                lv_label_set_text_fmt(child1,
+                    "%s%d.", msg->temp_value < 0 ? "-" : "",
+                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
+                lv_label_set_text_fmt(child2,"%d0℃",(msg->temp_value % 10 + 10) % 10);
+                 lv_label_set_text_fmt(child3,"%d.",temp_f1);
+                 lv_label_set_text_fmt(child4,"%d℉",temp_f2);
+
             break;
             #endif
             #ifdef USE_TEMP
             case SCREEN_ID_MEASURE_TEMP:
-                if(msg->temp_value >=  1000){
-                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"%d.",msg->temp_value/10);    
+                // if(msg->temp_value >=  1000){
+                //     lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"%d.",msg->temp_value/10);    
+                // }
+                // else{
+                //     lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"0%d.",msg->temp_value/10);
+                // }
+                // if(temp_f_times100>=10000){
+                //     lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"%.2f℉",(float)temp_f_times100 / 100.0f);     
+                // }
+                // else{
+                //     lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"0%.2f℉",(float)temp_f_times100 / 100.0f);
+                // } 
+                if(msg->temp_value >=  1000)
+                {
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 192, 59);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 144, 43);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,2), 20, 24);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 132, 1);
+                }
+                else if(msg->temp_value < 1000 && msg->temp_value >= 100)
+                {
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 156, 59);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 108, 43);
+                    if(temp_f_times100>=10000)
+                    {
+                        lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 96, 1);
+                    }
+                    else{
+                        lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 108, 1);
+                    }
+                }
+                else if(msg->temp_value < 100 && msg->temp_value >= 0)
+                {
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 120, 59);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 72, 43);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 108, 1);
+                }
+                else if(msg->temp_value < 0 && msg->temp_value > -100)
+                {
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 156, 59);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 108, 43);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 108, 1);
                 }
                 else{
-                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),"0%d.",msg->temp_value/10);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 192, 59);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 144, 43);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,2), 20, 24);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 132, 1);
                 }
-                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,1),"%d0",msg->temp_value%10);
-                if(temp_f_times100>=10000){
-                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"%.2f℉",(float)temp_f_times100 / 100.0f);     
-                }
-                else{
-                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"0%.2f℉",(float)temp_f_times100 / 100.0f);
-                }
-
+                // 加符号并取绝对值除10，避免 -1~-9 丢负号
+                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
+                                    "%s%d.", msg->temp_value < 0 ? "-" : "",
+                                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
+                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,1),"%d0",(msg->temp_value % 10 + 10) % 10);
+                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"%.2f℉",(float)temp_f_times100 / 100.0f);
             break;
             #endif
             default:
@@ -426,6 +499,79 @@ void gui_task_UI_callback(ui_msg_t *msg){
             #ifdef USE_TDS
             lv_obj_add_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
             #endif
+        }
+        break;
+    case UI_MSG_UPDATA_BAT_ICON:
+        switch (UI_icon.bat_icon)
+        {
+        case 0:
+            #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&bat80Percent);
+            #endif
+            lv_img_set_src(objects.bat_1,&bat80Percent);
+            lv_img_set_src(objects.bat_2,&bat80Percent);
+            lv_img_set_src(objects.bat_3,&bat80Percent);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&bat80Percent);
+            #endif
+            break;
+        case 1:
+            #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&bat60Percent);
+            #endif
+            lv_img_set_src(objects.bat_1,&bat60Percent);
+            lv_img_set_src(objects.bat_2,&bat60Percent);
+            lv_img_set_src(objects.bat_3,&bat60Percent);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&bat60Percent);
+            #endif
+            break;
+        case 2:
+            #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&bat40Percent);
+            #endif
+            lv_img_set_src(objects.bat_1,&bat40Percent);
+            lv_img_set_src(objects.bat_2,&bat40Percent);
+            lv_img_set_src(objects.bat_3,&bat40Percent);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&bat40Percent);
+            #endif
+            break;
+        case 3:
+            #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&bat20Percent);
+            #endif
+            lv_img_set_src(objects.bat_1,&bat40Percent);
+            lv_img_set_src(objects.bat_2,&bat40Percent);
+            lv_img_set_src(objects.bat_3,&bat40Percent);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&bat40Percent);
+            #endif
+            break;
+        case 4:
+            #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&bat20Percent);
+            #endif
+            lv_img_set_src(objects.bat_1,&bat20Percent);
+            lv_img_set_src(objects.bat_2,&bat20Percent);
+            lv_img_set_src(objects.bat_3,&bat20Percent);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&bat20Percent);
+            #endif    
+            break;
+        case 5:
+            #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&bat5Percent);
+            #endif
+            lv_img_set_src(objects.bat_1,&bat5Percent);
+            lv_img_set_src(objects.bat_2,&bat5Percent);
+            lv_img_set_src(objects.bat_3,&bat5Percent);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&bat5Percent);
+            #endif
+            break;
+        default:
+            break;
         }
         break;
     default:

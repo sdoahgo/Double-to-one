@@ -93,6 +93,7 @@ static int bat_adc_update(int adc_value)
     return aver;
 }
 
+volatile float bat_value = 0.0f;
 void bat_task(void *pvParameters)
 {
 
@@ -135,20 +136,24 @@ void bat_task(void *pvParameters)
     float filert_vol_1= 0.0f;
     float last_voltage = 0.0f;
     uint8_t vol_cnt = 0;
+    static float thr[5] = {3980.18f, 3892.09f, 3784.43f, 3624.57f, 3467.98f}; // 80/60/40/20/5%
+    static bool armed[5] = {true, true, true, true, true};    // 允许触发的状态
     while (1)
     {
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_4, &adc_raw));
         if (do_calibration1) {
+            ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, adc_raw, &voltage));//读取的ADC数值转换成电压
+            filert_vol_1 = bat_adc_update(voltage);//滤波
+            filert_vol_1 = filert_vol_1 * (144.2/44.2);
             if(last_voltage < filert_vol_1){
                 vol_cnt++;
                 if(vol_cnt == 3){
                     UI_icon.charge_icon = true;
                 }
+                 else {
+                    vol_cnt = 0; // 建议补这一行，避免一次到3后永久为真（可选）
+                }
             }
-            ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, adc_raw, &voltage));//读取的ADC数值转换成电压
-            filert_vol_1 = bat_adc_update(voltage);//滤波
-            filert_vol_1 = filert_vol_1 * (144.2/44.2);
-            last_voltage = filert_vol_1;
             // if(notify_state)
             // {
             //     // char data_user[16];
@@ -160,6 +165,26 @@ void bat_task(void *pvParameters)
             //         ESP_LOGE("BLE", "BLE notify fail\n");
             //     }
             // }
+
+            // 放在你计算出 v_now 之后、更新 last_voltage 之前
+            for (int i = 0; i < 5; ++i) {
+                if (armed[i]) {
+                    // 仅在“自上而下”跨过阈值−HYST 时触发
+                    if (last_voltage >= thr[i] && filert_vol_1 < (thr[i] - 30.0f)) {
+                        armed[i] = false;  // 解除武装，防抖
+                        // TODO: 触发你的动作（更新图标/提示/上报等）
+                        // printf("↓ 跨过 %d%% 阈值, v=%.1f mV\n", 100 - (i+1)*20, v_now);
+                    }
+                } else {
+                    // 充电或回升到阈值 + HYST 以上才“重新武装”，允许下次再触发
+                    if (filert_vol_1 > (thr[i] + 30.0f)) {
+                        armed[i] = true;
+                        // printf("↑ 重新武装 %d%% 阈值\n", 100 - (i+1)*20);
+                    }
+                }
+            }
+            last_voltage = filert_vol_1;
+            bat_value = filert_vol_1;
             printf("bat_mV =%.2f\n",filert_vol_1);
             // memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
             // uart_write_bytes(UART_NUM_0, (const char*)temp_data1, sizeof(temp_data1));
