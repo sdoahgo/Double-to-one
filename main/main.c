@@ -359,30 +359,42 @@ void gui_task_UI_callback(ui_msg_t *msg){
                 {
                     lv_obj_set_pos(child2, 57, 4);
                     lv_obj_set_pos(child4, 57, 36);
+                    lv_label_set_text_fmt(child1,
+                    "%s%d.", msg->temp_value < 0 ? "-" : "",
+                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else if(msg->temp_value < 1000 && msg->temp_value >= 100)
                 {
                     lv_obj_set_pos(child2, 45, 4);
                     lv_obj_set_pos(child4, 45, 36);
+                    lv_label_set_text_fmt(child1,
+                    "%s%d.", msg->temp_value < 0 ? "-" : "",
+                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else if(msg->temp_value < 100 && msg->temp_value >= 0)
                 {
-                    lv_obj_set_pos(child2, 33, 4);
-                    lv_obj_set_pos(child4, 33, 36);
+                    lv_obj_set_pos(child2, 45, 4);
+                    lv_obj_set_pos(child4, 45, 36);
+                    lv_label_set_text_fmt(child1,
+                    "%s0%d.", msg->temp_value < 0 ? "-" : "",
+                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else if(msg->temp_value < 0 && msg->temp_value > -100)
                 {
-                    lv_obj_set_pos(child2, 45, 4);
-                    lv_obj_set_pos(child4, 45, 36);
+                    lv_obj_set_pos(child2, 57, 4);
+                    lv_obj_set_pos(child4, 57, 36);
+                    lv_label_set_text_fmt(child1,
+                    "%s0%d.", msg->temp_value < 0 ? "-" : "",
+                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else
                 {
                     lv_obj_set_pos(child2, 57, 4);
-                    lv_obj_set_pos(child4, 45, 36);
-                }
-                lv_label_set_text_fmt(child1,
+                    lv_obj_set_pos(child4, 57, 36);
+                    lv_label_set_text_fmt(child1,
                     "%s%d.", msg->temp_value < 0 ? "-" : "",
                     (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
+                }
                 lv_label_set_text_fmt(child2,"%d0℃",(msg->temp_value % 10 + 10) % 10);
                  lv_label_set_text_fmt(child3,"%d.",temp_f1);
                  lv_label_set_text_fmt(child4,"%d℉",temp_f2);
@@ -409,6 +421,9 @@ void gui_task_UI_callback(ui_msg_t *msg){
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 144, 43);
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,2), 20, 24);
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 132, 1);
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
+                                    "%s%d.", msg->temp_value < 0 ? "-" : "",
+                                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else if(msg->temp_value < 1000 && msg->temp_value >= 100)
                 {
@@ -421,29 +436,37 @@ void gui_task_UI_callback(ui_msg_t *msg){
                     else{
                         lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 108, 1);
                     }
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
+                                    "%s%d.", msg->temp_value < 0 ? "-" : "",
+                                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else if(msg->temp_value < 100 && msg->temp_value >= 0)
-                {
-                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 120, 59);
-                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 72, 43);
-                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 108, 1);
-                }
-                else if(msg->temp_value < 0 && msg->temp_value > -100)
                 {
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 156, 59);
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 108, 43);
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 108, 1);
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
+                                    "%s0%d.", msg->temp_value < 0 ? "-" : "",
+                                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
+                }
+                else if(msg->temp_value < 0 && msg->temp_value > -100)
+                {
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 192, 59);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 144, 43);
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 144, 1);
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
+                                    "%s0%d.", msg->temp_value < 0 ? "-" : "",
+                                    (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 else{
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,0), 192, 59);
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,1), 144, 43);
                     lv_obj_set_pos(lv_obj_get_child(objects.temp_container,2), 20, 24);
-                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 132, 1);
-                }
-                // 加符号并取绝对值除10，避免 -1~-9 丢负号
-                lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
+                    lv_obj_set_pos(lv_obj_get_child(objects.temp_container,3), 144, 1);
+                    lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,2),
                                     "%s%d.", msg->temp_value < 0 ? "-" : "",
                                     (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
+                }
                 lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,1),"%d0",(msg->temp_value % 10 + 10) % 10);
                 lv_label_set_text_fmt(lv_obj_get_child(objects.temp_container,3),"%.2f℉",(float)temp_f_times100 / 100.0f);
             break;
