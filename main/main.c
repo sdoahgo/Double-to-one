@@ -366,7 +366,13 @@ void gui_task_UI_callback(ui_msg_t *msg){
                 else if(msg->temp_value < 1000 && msg->temp_value >= 100)
                 {
                     lv_obj_set_pos(child2, 45, 4);
-                    lv_obj_set_pos(child4, 45, 36);
+                    if(temp_f_times100 >= 10000)
+                    {
+                        lv_obj_set_pos(child4, 57, 36);
+                    }
+                    else{
+                        lv_obj_set_pos(child4, 45, 36);
+                    }
                     lv_label_set_text_fmt(child1,
                     "%s%d.", msg->temp_value < 0 ? "-" : "",
                     (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
@@ -396,8 +402,8 @@ void gui_task_UI_callback(ui_msg_t *msg){
                     (msg->temp_value < 0 ? -msg->temp_value : msg->temp_value) / 10);
                 }
                 lv_label_set_text_fmt(child2,"%d0℃",(msg->temp_value % 10 + 10) % 10);
-                 lv_label_set_text_fmt(child3,"%d.",temp_f1);
-                 lv_label_set_text_fmt(child4,"%d℉",temp_f2);
+                lv_label_set_text_fmt(child3,"%d.",temp_f1);
+                lv_label_set_text_fmt(child4,"%d℉",temp_f2);
 
             break;
             #endif
