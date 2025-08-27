@@ -93,6 +93,63 @@ static int bat_adc_update(int adc_value)
     return aver;
 }
 
+
+
+#define HYST_MV 5.0f   // 滞回电压（mV），避免边界附近抖动
+
+// 电池电量分级的阈值（单位 mV，按高到低排列）：对应 80%、60%、40%、20%、5% 档
+static const float thr[5] = {3980.18f, 3892.09f, 3784.43f, 3624.57f, 3467.98f};
+
+// 当前电池图标编号（0~5），0=100%，1=80%，2=60%，3=40%，4=20%，5=5%
+// 初始设为 0，表示默认满电；实际运行时会根据测量值更新
+// static uint8_t s_bat_icon = 0;
+
+/*
+ * 根据当前电池电压 v_mv（单位 mV），结合“当前档位 s_bat_icon”，
+ * 计算并返回新的电池图标编号（0~5）。
+ *
+ * 特点：
+ * - 使用滞回（HYST_MV），避免在临界值附近来回抖动。
+ * - 只有电压跨过阈值 ± 滞回范围时才切换档位。
+ */
+static uint8_t map_voltage_to_icon(float v_mv)
+{
+    switch (UI_icon.bat_icon) {
+        case 0: // 当前显示 100%
+            // 若电压下降并小于 80% 阈值 - 滞回 → 切换到 80% 图标
+            if (v_mv < thr[0] - HYST_MV) return 1;
+            return 0; // 否则保持 100%
+
+        case 1: // 当前显示 80%
+            // 如果电压上升并超过 80% 阈值 + 滞回 → 回到 100%
+            if (v_mv >= thr[0] + HYST_MV) return 0;
+            // 如果电压下降并小于 60% 阈值 - 滞回 → 降到 60%
+            if (v_mv < thr[1] - HYST_MV) return 2;
+            return 1; // 否则保持 80%
+
+        case 2: // 当前显示 60%
+            if (v_mv >= thr[1] + HYST_MV) return 1; // 上升到 80%
+            if (v_mv <  thr[2] - HYST_MV) return 3; // 下降到 40%
+            return 2; // 保持 60%
+
+        case 3: // 当前显示 40%
+            if (v_mv >= thr[2] + HYST_MV) return 2; // 上升到 60%
+            if (v_mv <  thr[3] - HYST_MV) return 4; // 下降到 20%
+            return 3; // 保持 40%
+
+        case 4: // 当前显示 20%
+            if (v_mv >= thr[3] + HYST_MV) return 3; // 上升到 40%
+            if (v_mv <  thr[4] - HYST_MV) return 5; // 下降到 5%
+            return 4; // 保持 20%
+
+        default: // 当前显示 5%（最低档，编号=5）
+            if (v_mv >= thr[4] + HYST_MV) return 4; // 电压上升到 20%
+            return 5; // 否则保持 5%
+    }
+}
+
+
+
 volatile float bat_value = 0.0f;
 void bat_task(void *pvParameters)
 {
@@ -136,8 +193,6 @@ void bat_task(void *pvParameters)
     float filert_vol_1= 0.0f;
     float last_voltage = 0.0f;
     uint8_t vol_cnt = 0;
-    static float thr[5] = {3980.18f, 3892.09f, 3784.43f, 3624.57f, 3467.98f}; // 80/60/40/20/5%
-    static bool armed[5] = {true, true, true, true, true};    // 允许触发的状态
     while (1)
     {
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC_CHANNEL_4, &adc_raw));
@@ -154,43 +209,19 @@ void bat_task(void *pvParameters)
                     vol_cnt = 0; // 建议补这一行，避免一次到3后永久为真（可选）
                 }
             }
-            // if(notify_state)
-            // {
-            //     // char data_user[16];
-            //     memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
-            //     // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
-            //     int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
-            //     if(rct)
-            //     {
-            //         ESP_LOGE("BLE", "BLE notify fail\n");
-            //     }
-            // }
-
             // 放在你计算出 v_now 之后、更新 last_voltage 之前
-            for (int i = 0; i < 5; ++i) {
-                if (armed[i]) {
-                    // 仅在“自上而下”跨过阈值−HYST 时触发
-                    if (last_voltage >= thr[i] && filert_vol_1 < (thr[i] - 30.0f)) {
-                        armed[i] = false;  // 解除武装，防抖
-                        // TODO: 触发你的动作（更新图标/提示/上报等）
-                        // printf("↓ 跨过 %d%% 阈值, v=%.1f mV\n", 100 - (i+1)*20, v_now);
-                    }
-                } else {
-                    // 充电或回升到阈值 + HYST 以上才“重新武装”，允许下次再触发
-                    if (filert_vol_1 > (thr[i] + 30.0f)) {
-                        armed[i] = true;
-                        // printf("↑ 重新武装 %d%% 阈值\n", 100 - (i+1)*20);
-                    }
-                }
+            uint8_t new_bat_icon = map_voltage_to_icon(filert_vol_1);
+            // 🔹 如果图标变了，才刷新 UI
+            if (new_bat_icon != UI_icon.bat_icon) {
+                UI_icon.bat_icon = new_bat_icon;             // 更新当前档位
+                ui_msg_t msg = { .type = UI_MSG_UPDATA_BAT_ICON };
+                xQueueSend(ui_msg_queue, &msg, portMAX_DELAY);
             }
             last_voltage = filert_vol_1;
             bat_value = filert_vol_1;
             printf("bat_mV =%.2f\n",filert_vol_1);
-            // memcpy(&temp_data1[1], &filert_vol_1, sizeof(float));
-            // uart_write_bytes(UART_NUM_0, (const char*)temp_data1, sizeof(temp_data1));
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
 
     }
-    
 }

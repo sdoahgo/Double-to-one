@@ -19,6 +19,7 @@
 #include "user_hal.h"
 #include "user_ble.h"
 #include "images.h"
+#include "driver/uart.h" 
 
 sys_data SYS_DATA;
 ui_icon_t UI_icon;
@@ -111,6 +112,58 @@ static void example_increase_lvgl_tick(void *arg)
 lv_disp_drv_t disp_drv;      // LVGL 的显示驱动结构体
 void app_main(void)
 {
+
+//         uart_config_t uart_config = {
+//         .baud_rate = 115200,
+//         .data_bits = UART_DATA_8_BITS,
+//         .parity = UART_PARITY_DISABLE,
+//         .stop_bits = UART_STOP_BITS_1,
+//         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+//         .source_clk = UART_SCLK_APB,
+//     };
+//     // 配置并安装UART驱动
+//     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, 256, 0, 0, NULL, 0));
+//     // 配置UART参数
+//     ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &uart_config));
+
+//     uart_set_pin(UART_NUM_1, 19, 18, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+//     gpio_config_t on_off_gpio_config = {
+//         .mode = GPIO_MODE_OUTPUT,
+//         .pin_bit_mask = 1ULL << ON_OFF | 1ULL << Power_CTRL
+//     };
+//     ESP_ERROR_CHECK(gpio_config(&on_off_gpio_config));
+//     gpio_set_level(ON_OFF, 1); 
+
+    
+// /**************************激光测距出厂配置************************** */
+//     //固定反射强度设置为3档
+//     const char setting_intensity[7] = {0x5A,0x07,0x25,0x00,0x01,0x00,0x00};  //0x01,0x00,0x00:3档  00 01 00:2档
+//     uart_write_bytes(UART_NUM_1, setting_intensity, 7); 
+//     vTaskDelay(pdMS_TO_TICKS(20));
+
+//     // //0x59 0x59 HDist LDist HAmp LAmp Temp Current Check_sum
+//     // const char setting_test[5] = {0x5A,0x05,0x05,0x0B,0x6F};
+//     // uart_write_bytes(UART_NUM_1, setting_test, 5);
+//     // vTaskDelay(pdMS_TO_TICKS(20)); 
+
+//     //9字节mm输出
+//     const char setting_distance[5] = {0x5A,0x05,0x05,0x06,0x00}; 
+//     uart_write_bytes(UART_NUM_1, setting_distance, 5); 
+//     vTaskDelay(pdMS_TO_TICKS(20));  
+
+//     //250Hz [5A 06 03 FA 00 00]  低功耗模式10Hz输出 [5A 06 35 0A 00 00]
+//     const char setting_frequency[6] = {0x5A,0x06,0x35,0x0A,0x00,0x00};
+//     uart_write_bytes(UART_NUM_1, setting_frequency, 6);
+//     vTaskDelay(pdMS_TO_TICKS(20));  
+
+//     //掉电保存
+//     const char setting_saving[4] = {0x5A,0x04,0x11,0x00};
+//     uart_write_bytes(UART_NUM_1, setting_saving, 4);
+//     vTaskDelay(pdMS_TO_TICKS(100));
+
+
+
     // 配置 ON_OFF 引脚为输出模式，并初始化为高电平（打开某设备电源或主控电源）
     gpio_config_t on_off_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
@@ -535,6 +588,17 @@ void gui_task_UI_callback(ui_msg_t *msg){
         {
         case 0:
             #ifdef USE_TEMP
+            lv_img_set_src(objects.bat,&img_bat);
+            #endif
+            lv_img_set_src(objects.bat_1,&img_bat);
+            lv_img_set_src(objects.bat_2,&img_bat);
+            lv_img_set_src(objects.bat_3,&img_bat);
+            #ifdef USE_TDS
+            lv_img_set_src(objects.bat_4,&img_bat);
+            #endif
+            break;
+        case 1:
+            #ifdef USE_TEMP
             lv_img_set_src(objects.bat,&bat80Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat80Percent);
@@ -544,7 +608,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat_4,&bat80Percent);
             #endif
             break;
-        case 1:
+        case 2:
             #ifdef USE_TEMP
             lv_img_set_src(objects.bat,&bat60Percent);
             #endif
@@ -555,20 +619,9 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat_4,&bat60Percent);
             #endif
             break;
-        case 2:
-            #ifdef USE_TEMP
-            lv_img_set_src(objects.bat,&bat40Percent);
-            #endif
-            lv_img_set_src(objects.bat_1,&bat40Percent);
-            lv_img_set_src(objects.bat_2,&bat40Percent);
-            lv_img_set_src(objects.bat_3,&bat40Percent);
-            #ifdef USE_TDS
-            lv_img_set_src(objects.bat_4,&bat40Percent);
-            #endif
-            break;
         case 3:
             #ifdef USE_TEMP
-            lv_img_set_src(objects.bat,&bat20Percent);
+            lv_img_set_src(objects.bat,&bat40Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat40Percent);
             lv_img_set_src(objects.bat_2,&bat40Percent);
