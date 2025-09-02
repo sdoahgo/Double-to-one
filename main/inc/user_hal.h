@@ -43,6 +43,7 @@ typedef struct
     #ifdef USE_TDS
     uint16_t TF_DIST_value;
     uint16_t TF_AMP_value;
+    float TF_TDS_value;
     #endif
 }ui_msg_t;
 

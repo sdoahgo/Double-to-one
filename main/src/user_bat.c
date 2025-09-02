@@ -222,6 +222,5 @@ void bat_task(void *pvParameters)
             printf("bat_mV =%.2f\n",filert_vol_1);
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
-
     }
 }

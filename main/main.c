@@ -536,20 +536,31 @@ void gui_task_UI_callback(ui_msg_t *msg){
     break;
     #ifdef USE_TDS
     case UI_MSG_UPDATE_850:
-        uint8_t hundreds = msg->TF_DIST_value / 100;   // 包含多少个100
-        uint8_t remainder = msg->TF_DIST_value % 100;  // 百位以下是多少
-        if(remainder < 10)
-        {
-            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,3), "0%d",remainder);
+        int32_t  integer = (int32_t)msg->TF_TDS_value;  // 向0截断得到整数部分
+        uint32_t fractional_part =
+            (uint32_t)lroundf((msg->TF_TDS_value - (float)integer) * 100.0f); // 四舍五入两位
+
+        // 处理进位：如 1.995 → integer=2, fractional_part=0
+        if (fractional_part == 100) {
+            fractional_part = 0;
+            integer += 1;
         }
-        else
-        {
-            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,3), "%d", remainder);
+
+        // 小数：两位，补零（保持你原来的索引 3）
+        lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container, 3),
+                            "%02u", (unsigned)fractional_part);
+
+        // 整数：<10 时补 0，并在末尾加点（保持你原来的索引 2）
+        if (integer < 10) {
+            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container, 2),
+                                "0%u.", (unsigned)integer);
+        } else {
+            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container, 2),
+                                "%u.",  (unsigned)integer);
         }
-        if(hundreds < 10){
-            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,2), "0%d.", hundreds);
-        }else{
-            lv_label_set_text_fmt(lv_obj_get_child(objects.tds_container,2), "%d.", hundreds);
+        if(integer>=100){
+            lv_label_set_text(lv_obj_get_child(objects.tds_container, 3),"99");
+            lv_label_set_text(lv_obj_get_child(objects.tds_container, 2),"99.");
         }
         break;
     #endif

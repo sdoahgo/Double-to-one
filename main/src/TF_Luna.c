@@ -3,6 +3,12 @@
 #include "driver/gpio.h"
 #include "user_hal.h"
 #include "user_ble.h"
+#include "algorithms.h"
+
+float tds_x[N_spline] = {63.0f, 72.0f, 77.0f, 84.0f, 90.0f, 103.0f, 116.0f, 136.0f, 153.0f, 160.0f, 183.0f, 220.0f, 237.0f};   //*0.01f    
+float tds_y[N_spline] = {121.7f, 98.0f, 71.0f, 52.6f, 42.0f, 29.1f, 21.6f, 16.4f, 14.7f, 12.9f, 10.7f, 7.2f, 5.9f};            //*10.0f BenchMark
+
+SlidingWindow_filter window_tds_filtered;
 
 #ifdef USE_TDS
 static TaskHandle_t TF_Luna_task_handle = NULL;
@@ -88,11 +94,11 @@ void TF_Luna_task(void *pvParameters)
     uint8_t i =0;
     uint8_t datas[4] = {0};
     uint8_t data = 0;
-    uint8_t temp_data1 [2*sizeof(float) + 1*sizeof(uint16_t) + 3];
-    temp_data1[0] = 0xAA;
-    temp_data1[11] = 0xBB;
-    temp_data1[12] = 0x85;
-    // char data_user[32];
+    // uint8_t temp_data1 [2*sizeof(float) + 1*sizeof(uint16_t) + 3];
+    // temp_data1[0] = 0xAA;
+    // temp_data1[11] = 0xBB;
+    // temp_data1[12] = 0x85;
+    char data_user[32];
     vTaskDelay(pdMS_TO_TICKS(500));
     if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
         esp_err_t err = TF_Luna_handler.read(&TF_Luna_handler, 0x28, &data, 1);
@@ -116,6 +122,13 @@ void TF_Luna_task(void *pvParameters)
         }
     xSemaphoreGive(i2c_mutex);
     }
+
+    // /********************** @yearn *********************** */
+    initSlidingWindow_filter(&window_tds_filtered); 
+    SplineCoeffs spline_tds;
+    computeSplineCoeffs(tds_x, tds_y, &spline_tds);  
+
+    // /********************** @yearn *********************** */
     while (1)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -126,34 +139,51 @@ void TF_Luna_task(void *pvParameters)
         }
         uint16_t DIST = datas[1]<<8 | datas[0];
         uint16_t AMP =  datas[3]<<8 | datas[2];
-            if(notify_state)
-            {
-                // char data_user[16];
-                memcpy(&temp_data1[1], &AMP, sizeof(uint16_t));
-                memcpy(&temp_data1[3], &GD60914_TEMP, sizeof(float));
-                memcpy(&temp_data1[7], &bat_value, sizeof(float));
-                // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
-                int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
-                if(rct)
-                {
-                    ESP_LOGE("BLE", "BLE notify fail\n");
-                }
-            }
+        // /********************** @yearn *********************** */
+        float tds = evalSpline(&spline_tds, AMP*0.01f );
+
+        //添加到滤波滑动窗口，为了识别色值的实时振动幅度
+        addToSlidingWindow4Filter(&window_tds_filtered, tds); 
+        
+        if(window_tds_filtered.count < WINDOW_SIZE_Filter)
+        {
+            tds = tds;
+        }   
+        else if(window_tds_filtered.count >= WINDOW_SIZE_Filter) 
+        {
+            tds = calculateWeightedMedianMean_window(&window_tds_filtered);
+        }
+
+        // /********************** @yearn *********************** */
+            // if(notify_state)
+            // {
+            //     // char data_user[16];
+            //     memcpy(&temp_data1[1], &AMP, sizeof(uint16_t));
+            //     memcpy(&temp_data1[3], &GD60914_TEMP, sizeof(float));
+            //     memcpy(&temp_data1[7], &bat_value, sizeof(float));
+            //     // snprintf(data_user,sizeof(data_user),"bat:%.4f",filert_vol_1);
+            //     int rct = user_send_notify((char *)temp_data1, sizeof(temp_data1));
+            //     if(rct)
+            //     {
+            //         ESP_LOGE("BLE", "BLE notify fail\n");
+            //     }
+            // }
         ui_msg_t msg = {
             .type = UI_MSG_UPDATE_850,
             .TF_DIST_value = DIST,
             .TF_AMP_value = AMP,
+            .TF_TDS_value = tds*0.1f,
         };
         xQueueSend(ui_msg_queue, &msg, portMAX_DELAY);
         printf("DIST %dcm AMP %d",DIST,AMP);
-        // if (notify_state)
-        // {
-        //     int len = snprintf(data_user, sizeof(data_user), "AMP:%d TMP:%.1f\r\n",AMP,GD60914_TEMP);
-        //     int rct = user_send_notify(data_user, strlen(data_user));
-        //     if (rct) {
-        //         ESP_LOGE("BLE", "BLE notify fail\n");
-        //     }
-        // }
+        if (notify_state)
+        {
+            int len = snprintf(data_user, sizeof(data_user), "AMP:%dTMP:%.1fTDS:%.2f\r\n",AMP,GD60914_TEMP,tds*0.1f);
+            int rct = user_send_notify(data_user, strlen(data_user));
+            if (rct) {
+                ESP_LOGE("BLE", "BLE notify fail\n");
+            }
+        }
     }
 }
 
