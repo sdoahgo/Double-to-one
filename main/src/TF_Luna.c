@@ -67,12 +67,14 @@ static void IRAM_ATTR gpio_isr_handler(void* arg)
 
 void TF_Luna_init(const struct TF_Luna_HANDLER *handle)
 {
-    // TF_Luna_write_byte(0x1f,0x00); //标准模式
-    // TF_Luna_write_byte(0x23,0x00); //连续工作模式
-    handle->write_byte(handle, 0x26, 0x05); //帧率10
-    handle->write_byte(handle, 0x28, 0x01); //低功耗模式
-
-    xTaskCreate(TF_Luna_task, "TF_Luna_task", (1024 * 4), (void *)NULL, (tskIDLE_PRIORITY+5), &TF_Luna_task_handle);
+    if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
+        // TF_Luna_write_byte(0x1f,0x00); //标准模式
+        // TF_Luna_write_byte(0x23,0x00); //连续工作模式
+        handle->write_byte(handle, 0x26, 0x05); //帧率10
+        vTaskDelay(pdMS_TO_TICKS(100));
+        handle->write_byte(handle, 0x28, 0x01); //低功耗模式
+    xSemaphoreGive(i2c_mutex);
+    }
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << handle->IO_OUT),      
         .mode = GPIO_MODE_INPUT,       
@@ -83,8 +85,10 @@ void TF_Luna_init(const struct TF_Luna_HANDLER *handle)
     gpio_config(&io_conf);              // 应用配置
     gpio_install_isr_service(0); // 参数0一般用默认
     gpio_isr_handler_add(handle->IO_OUT, gpio_isr_handler, (void*) handle->IO_OUT);
+    xTaskCreate(TF_Luna_task, "TF_Luna_task", (1024 * 4), (void *)NULL, (tskIDLE_PRIORITY+5), &TF_Luna_task_handle);
 }
 extern volatile float GD60914_TEMP;
+extern volatile float bat_value;
 void TF_Luna_task(void *pvParameters)
 {
     uint8_t i =0;
@@ -96,8 +100,7 @@ void TF_Luna_task(void *pvParameters)
     // temp_data1[12] = 0x85;
     char data_user[32];
     vTaskDelay(pdMS_TO_TICKS(500));
-    if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) 
-    {
+    if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
         esp_err_t err = TF_Luna_handler.read(&TF_Luna_handler, 0x28, &data, 1);
         if(err != ESP_OK)
         {                                                                                                                                
@@ -106,10 +109,9 @@ void TF_Luna_task(void *pvParameters)
         else{
             ESP_LOGI(TF_TAG, "TF read 0x28: %x", data);
         }
-        xSemaphoreGive(i2c_mutex);
+    xSemaphoreGive(i2c_mutex);
     }
-        if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) 
-        {
+        if (xSemaphoreTake(i2c_mutex, portMAX_DELAY)) {
         esp_err_t err = TF_Luna_handler.read(&TF_Luna_handler, 0x26, &data, 1);
         if(err != ESP_OK)
         {                                                                                                                                
@@ -118,7 +120,7 @@ void TF_Luna_task(void *pvParameters)
         else{
             ESP_LOGI(TF_TAG, "TF read 0x26: %x", data);
         }
-        xSemaphoreGive(i2c_mutex);
+    xSemaphoreGive(i2c_mutex);
     }
 
     // /********************** @yearn *********************** */

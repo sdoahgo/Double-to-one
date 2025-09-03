@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 #define USE_TDS
-//#define USE_TEMP
+// #define USE_TEMP
 
 // typedef struct _objects_t {
 //     lv_obj_t *measure_tds;
