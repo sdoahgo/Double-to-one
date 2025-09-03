@@ -27,7 +27,6 @@ typedef enum{
     UI_MSG_UPDATE_LANUAGE,
     UI_MSG_UPDATE_STATE,
     UI_MSG_UPDATA_WIFI_BLE_ICON,
-    UI_MSG_UPDATA_BAT_ICON,
 }ui_msg_type_t;
 
 typedef struct 
@@ -51,7 +50,7 @@ typedef struct
 {
     bool ble_icon;
     bool charge_icon;
-    uint8_t bat_icon; //0 - 100, 1 - 80, 2 - 60, 3 -40, 4 -20 , 5 - 5
+    uint8_t bat_icon;
 }ui_icon_t;
 extern ui_icon_t UI_icon;
 
