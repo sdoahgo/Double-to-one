@@ -309,20 +309,20 @@ void gui_task_key_callback(uint8_t *event)
         if(GIF_end_flag)
         {
             Screens_ID = Screens_ID +1;
-            if(Screens_ID >= 5)
+            if(Screens_ID >= 4)
             {
                 Screens_ID = 1;
             }
             loadScreen(Screens_ID);
-            switch (Screens_ID)
-            {
-            case SCREEN_ID_CALIBRATION_PAGE:
-                lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xffa851ff), LV_PART_MAIN | LV_STATE_DEFAULT);
-                break;
+            // switch (Screens_ID)
+            // {
+            // case SCREEN_ID_CALIBRATION_PAGE:
+            //     lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xffa851ff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            //     break;
             
-            default:
-                break;
-            }
+            // default:
+            //     break;
+            // }
         }
         break;
     case USER_KEY_LONG_IN_EVT:
@@ -350,16 +350,16 @@ void gui_task_key_callback(uint8_t *event)
             lv_label_set_text(lv_obj_get_child(objects.temp_container,5), UI_STRING[0][SYS_DATA.language_id]);
             #endif
             lv_label_set_text(objects.language_switch_prompt, UI_STRING[1][SYS_DATA.language_id]);
-            lv_label_set_text(objects.calibration_prompt, UI_STRING[2][SYS_DATA.language_id]);
-            lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[3][SYS_DATA.language_id]);
+            // lv_label_set_text(objects.calibration_prompt, UI_STRING[2][SYS_DATA.language_id]);
+            // lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[3][SYS_DATA.language_id]);
             lv_label_set_text(lv_obj_get_child(objects.product_name_panel,1), UI_STRING[6][SYS_DATA.language_id]);
             lv_label_set_text(lv_obj_get_child(objects.model_panel,1), UI_STRING[7][SYS_DATA.language_id]);
             lv_label_set_text(lv_obj_get_child(objects.software_version_panel,1), UI_STRING[9][SYS_DATA.language_id]);
             lv_label_set_text(lv_obj_get_child(objects.hardware_version_panel,1), UI_STRING[8][SYS_DATA.language_id]);
             break;
-        case SCREEN_ID_CALIBRATION_PAGE:
-            lv_event_send(objects.calibration_bt, LV_EVENT_CLICKED, NULL);
-            break;
+        // case SCREEN_ID_CALIBRATION_PAGE:
+        //     lv_event_send(objects.calibration_bt, LV_EVENT_CLICKED, NULL);
+        //     break;
         default:
             break;
         }
@@ -576,7 +576,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_obj_clear_flag(objects.wifi,LV_OBJ_FLAG_HIDDEN);
             #endif
             lv_obj_clear_flag(objects.wifi_1,LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
+            // lv_obj_clear_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(objects.wifi_3,LV_OBJ_FLAG_HIDDEN);
             #ifdef USE_TDS
             lv_obj_clear_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
@@ -587,7 +587,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_obj_add_flag(objects.wifi,LV_OBJ_FLAG_HIDDEN);
             #endif
             lv_obj_add_flag(objects.wifi_1,LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
+            // lv_obj_add_flag(objects.wifi_2,LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(objects.wifi_3,LV_OBJ_FLAG_HIDDEN);
             #ifdef USE_TDS
             lv_obj_add_flag(objects.wifi_4,LV_OBJ_FLAG_HIDDEN);
@@ -602,7 +602,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat,&img_bat);
             #endif
             lv_img_set_src(objects.bat_1,&img_bat);
-            lv_img_set_src(objects.bat_2,&img_bat);
+            // lv_img_set_src(objects.bat_2,&img_bat);
             lv_img_set_src(objects.bat_3,&img_bat);
             #ifdef USE_TDS
             lv_img_set_src(objects.bat_4,&img_bat);
@@ -613,7 +613,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat,&bat80Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat80Percent);
-            lv_img_set_src(objects.bat_2,&bat80Percent);
+            // lv_img_set_src(objects.bat_2,&bat80Percent);
             lv_img_set_src(objects.bat_3,&bat80Percent);
             #ifdef USE_TDS
             lv_img_set_src(objects.bat_4,&bat80Percent);
@@ -624,7 +624,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat,&bat60Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat60Percent);
-            lv_img_set_src(objects.bat_2,&bat60Percent);
+            // lv_img_set_src(objects.bat_2,&bat60Percent);
             lv_img_set_src(objects.bat_3,&bat60Percent);
             #ifdef USE_TDS
             lv_img_set_src(objects.bat_4,&bat60Percent);
@@ -635,7 +635,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat,&bat40Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat40Percent);
-            lv_img_set_src(objects.bat_2,&bat40Percent);
+            // lv_img_set_src(objects.bat_2,&bat40Percent);
             lv_img_set_src(objects.bat_3,&bat40Percent);
             #ifdef USE_TDS
             lv_img_set_src(objects.bat_4,&bat40Percent);
@@ -646,7 +646,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat,&bat20Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat20Percent);
-            lv_img_set_src(objects.bat_2,&bat20Percent);
+            // lv_img_set_src(objects.bat_2,&bat20Percent);
             lv_img_set_src(objects.bat_3,&bat20Percent);
             #ifdef USE_TDS
             lv_img_set_src(objects.bat_4,&bat20Percent);
@@ -657,7 +657,7 @@ void gui_task_UI_callback(ui_msg_t *msg){
             lv_img_set_src(objects.bat,&bat5Percent);
             #endif
             lv_img_set_src(objects.bat_1,&bat5Percent);
-            lv_img_set_src(objects.bat_2,&bat5Percent);
+            // lv_img_set_src(objects.bat_2,&bat5Percent);
             lv_img_set_src(objects.bat_3,&bat5Percent);
             #ifdef USE_TDS
             lv_img_set_src(objects.bat_4,&bat5Percent);

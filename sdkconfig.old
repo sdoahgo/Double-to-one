@@ -447,6 +447,18 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# test Configuration
+#
+
+#
+# LCD Controller
+#
+# CONFIG_LCD_CONTROLLER_ST7735 is not set
+# CONFIG_LCD_CONTROLLER_ST7789T3 is not set
+# end of LCD Controller
+# end of test Configuration
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEBUG=y
@@ -2252,7 +2264,7 @@ CONFIG_LV_USE_GRID=y
 # CONFIG_LV_USE_BMP is not set
 # CONFIG_LV_USE_SJPG is not set
 CONFIG_LV_USE_GIF=y
-# CONFIG_LV_USE_QRCODE is not set
+CONFIG_LV_USE_QRCODE=y
 # CONFIG_LV_USE_FREETYPE is not set
 # CONFIG_LV_USE_TINY_TTF is not set
 # CONFIG_LV_USE_RLOTTIE is not set

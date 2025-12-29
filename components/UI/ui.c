@@ -162,10 +162,10 @@ void ui_event_page_load_tds_screen(lv_event_t * e)
             top_or_bottom_Animation(objects.language_switch_prompt, 96, 52, 500, 1, 100);
 
             break;
-        case SCREEN_ID_CALIBRATION_PAGE:
-            top_or_bottom_Animation(objects.calibration_bt, -86, 0, 500, 1, 200);
-            top_or_bottom_Animation(objects.calibration_prompt, 76, 52, 500, 1, 200);
-            break;
+        // case SCREEN_ID_CALIBRATION_PAGE:
+        //     top_or_bottom_Animation(objects.calibration_bt, -86, 0, 500, 1, 200);
+        //     top_or_bottom_Animation(objects.calibration_prompt, 76, 52, 500, 1, 200);
+            // break;
         case SCREEN_ID_ABOUT_PAGE:
                 left_or_right_Animation(objects.qr_panel, 0, 18, 500, 1, 200);
                 left_or_right_Animation(objects.product_name_panel, 125, 107, 500, 1, 200);
@@ -181,18 +181,18 @@ void ui_event_page_load_tds_screen(lv_event_t * e)
     }
 }
 
-volatile bool calibration_flags = false;
-void ui_calibration_event(lv_event_t * e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t *target = lv_event_get_target(e);
-    if(code == LV_EVENT_CLICKED)
-    {
-        // lv_obj_set_style_bg_color(target, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[4][SYS_DATA.language_id]);
-        calibration_flags = false;
-    }
-}
+// volatile bool calibration_flags = false;
+// void ui_calibration_event(lv_event_t * e)
+// {
+//     lv_event_code_t code = lv_event_get_code(e);
+//     lv_obj_t *target = lv_event_get_target(e);
+//     if(code == LV_EVENT_CLICKED)
+//     {
+//         // lv_obj_set_style_bg_color(target, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+//         lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[4][SYS_DATA.language_id]);
+//         calibration_flags = false;
+//     }
+// }
 
 
 

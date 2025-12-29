@@ -447,6 +447,18 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# test Configuration
+#
+
+#
+# LCD Controller
+#
+CONFIG_LCD_CONTROLLER_ST7735=y
+# CONFIG_LCD_CONTROLLER_ST7789T3 is not set
+# end of LCD Controller
+# end of test Configuration
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEBUG=y

@@ -1,0 +1,14 @@
+menu "test Configuration"
+    menu "LCD Controller"
+        config LCD_CONTROLLER_ST7735
+            bool "Enable LCD ST7735"
+            default n
+            help
+                Enable this option if you wish to use display.  
+        config LCD_CONTROLLER_ST7789T3
+            bool "Enable LCD ST7789T3"
+            default n
+            help
+                Enable this option if you wish to use display.            
+    endmenu
+endmenu
