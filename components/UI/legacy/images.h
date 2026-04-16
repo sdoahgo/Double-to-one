@@ -14,6 +14,7 @@ extern const lv_img_dsc_t bat20Percent;
 extern const lv_img_dsc_t bat40Percent;
 extern const lv_img_dsc_t bat60Percent;
 extern const lv_img_dsc_t bat80Percent;
+extern const lv_img_dsc_t img_recharge;
 
 #ifndef EXT_IMG_DESC_T
 #define EXT_IMG_DESC_T

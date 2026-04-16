@@ -616,7 +616,8 @@ size_t iot_button_count_cb(button_handle_t btn_handle)
     BTN_CHECK(NULL != btn_handle, "Pointer of handle is invalid", ESP_ERR_INVALID_ARG);
     button_dev_t *btn = (button_dev_t *) btn_handle;
     size_t ret = 0;
-    for (size_t i = 0; i < BUTTON_EVENT_MAX; i++) {
+    for (size_t i = 0; i < BUTTON_EVENT_MAX; i++) 
+    {
         if (btn->cb_info[i]) {
             ret+=btn->size[i];
         }

@@ -50,8 +50,7 @@ int gatt_svr_init(void);
 void user_ble_init(void);
 int user_send_notify(char* data, size_t data_size);
 
-static uint8_t command_parameter[16] =
-{0xa6,0xc3,0xca,0x4b,0x9c,0x1c,0x46,0xb8,0x58,0xe9,0x4b,0xd1,0xd2,0xa5,0x56,0xa6}; 
+extern const uint8_t command_parameter[16];
 
 // typedef struct users_ble
 // {

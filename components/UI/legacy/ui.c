@@ -47,6 +47,7 @@ static lv_obj_t *getLvglObjectFromIndex(int32_t index) {
     return ((lv_obj_t **)&objects)[index];
 }
 
+volatile uint8_t UI_page_id = 1;
 /**
  * @brief 切换当前 LVGL 屏幕
  * @param screenId - 目标屏幕的枚举编号（通常从 1 开始）
@@ -55,6 +56,7 @@ static lv_obj_t *getLvglObjectFromIndex(int32_t index) {
  * 然后获取对应的 lv_obj_t*，最后使用 LVGL 的动画切换到该屏幕
  */
 void loadScreen(enum ScreensEnum screenId) {
+    UI_page_id = screenId;
     currentScreen = screenId - 1;   // 转为 0 基下标
     lv_obj_t *screen = getLvglObjectFromIndex(currentScreen); // 获取对应屏幕对象
     lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false); // 淡入切屏动画
@@ -73,12 +75,7 @@ void ui_tick() {
 static void delayed_delete_cb(lv_timer_t * timer) {
     printf("delayed_delete_cb\r\n");  // 打印回调信息
     lv_timer_del(timer);;
-    #ifdef USE_TDS
-    loadScreen(SCREEN_ID_MEASURE_TDS);
-    #endif
-    #ifdef USE_TEMP
-    loadScreen(SCREEN_ID_MEASURE_TEMP);
-    #endif
+    loadScreen(UI_FIRST_CYCLING_SCREEN);
     GIF_end_flag = true;
 }
 // GIF 播放结束的回调函数
@@ -121,8 +118,9 @@ void  lv_example_gif2(void) {
     // 创建 GIF 控件并从 C 数组中加载数据
     lv_obj_t * gif1 = lv_gif_create(prj_parent_cont);  // 在当前屏幕上创建 GIF 控件
     lv_gif_set_src(gif1, &LEBREW);             // 使用嵌入式的 GIF 数据
+    // lv_gif_set_src(gif1, "/spiffs/LEBREW.gif");             // 使用嵌入式的 GIF 数据
     lv_obj_align(gif1, LV_ALIGN_CENTER, 0, 0); // 设置 GIF 在屏幕中央显示
-    ((lv_gif_t*)gif1)->gif->loop_count = 1;//设置只播放一次
+    ((lv_gif_t*)gif1)->gif->loop_count = SYS_DATA.GIF_VALUE;//设置只播放一次
     // 添加播放结束事件回调
     lv_obj_add_event_cb(gif1, gif_end_cb, LV_EVENT_READY, NULL);
 
@@ -156,16 +154,15 @@ void ui_event_page_load_tds_screen(lv_event_t * e)
             top_or_bottom_Animation(objects.language_switch_prompt, 76, 52, 500, 1, 200);
             break;
         #endif
+        case SCREEN_ID_CALIBRATION_PAGE:
+            top_or_bottom_Animation(objects.calibration_bt, -86, 0, 500, 1, 200);
+            top_or_bottom_Animation(objects.calibration_prompt, 76, 52, 500, 1, 200);
+            break;
         case SCREEN_ID_LANGUAGE_PAGE:
             left_or_right_Animation(objects.chinese_bt, 0, 18, 500, 1, 200);
             left_or_right_Animation(objects.engilsh_bt, 186, 168, 500, 1, 200);
             top_or_bottom_Animation(objects.language_switch_prompt, 96, 52, 500, 1, 100);
-
             break;
-        // case SCREEN_ID_CALIBRATION_PAGE:
-        //     top_or_bottom_Animation(objects.calibration_bt, -86, 0, 500, 1, 200);
-        //     top_or_bottom_Animation(objects.calibration_prompt, 76, 52, 500, 1, 200);
-            // break;
         case SCREEN_ID_ABOUT_PAGE:
                 left_or_right_Animation(objects.qr_panel, 0, 18, 500, 1, 200);
                 left_or_right_Animation(objects.product_name_panel, 125, 107, 500, 1, 200);
@@ -173,28 +170,45 @@ void ui_event_page_load_tds_screen(lv_event_t * e)
                 left_or_right_Animation(objects.hardware_version_panel, 125, 107, 500, 1, 200);
                 left_or_right_Animation(objects.software_version_panel, 125, 107, 500, 1, 200);
                 top_or_bottom_Animation(objects.sn, 160, 134, 500, 1, 100);
+                top_or_bottom_Animation(objects.sn_1, 160, 134, 500, 1, 100);
             break;
-
+        case SCREEN_ID_LOWPOWER_PAGE:
+            //     left_or_right_Animation(lv_obj_get_child(objects.low_power_page,0), -118, 0, 500, 1, 200);
+            //     left_or_right_Animation(lv_obj_get_child(objects.low_power_page,1), 181, 118, 500, 1, 200);
+            // break;
         default:
             break;
         }
     }
+    // if(Screens_ID == SCREEN_ID_LOWPOWER_PAGE)
+    // {
+    //     lv_obj_clear_flag(objects.low_power_page,LV_OBJ_FLAG_HIDDEN);
+    //     left_or_right_Animation(lv_obj_get_child(objects.low_power_page,0), -118, 0, 500, 1, 200);
+    //     left_or_right_Animation(lv_obj_get_child(objects.low_power_page,1), 181, 118, 500, 1, 200);
+    // }
 }
 
-// volatile bool calibration_flags = false;
-// void ui_calibration_event(lv_event_t * e)
+volatile bool calibration_flags = false;
+void ui_calibration_event(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *target = lv_event_get_target(e);
+    if(code == LV_EVENT_CLICKED)
+    {
+        // lv_obj_set_style_bg_color(target, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[4][SYS_DATA.language_id]);
+        lv_obj_add_flag(objects.calibration_prompt,LV_OBJ_FLAG_HIDDEN);
+        calibration_flags = true;
+    }
+}
+
+// void ui_calibration_success(ui_msg_t *msg)
 // {
-//     lv_event_code_t code = lv_event_get_code(e);
-//     lv_obj_t *target = lv_event_get_target(e);
-//     if(code == LV_EVENT_CLICKED)
-//     {
-//         // lv_obj_set_style_bg_color(target, lv_color_hex(0xff6b45dd), LV_PART_MAIN | LV_STATE_DEFAULT);
-//         lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[4][SYS_DATA.language_id]);
-//         calibration_flags = false;
-//     }
+//     SYS_DATA.temp_calibration_value = msg->temp_value;
+//     calibration_flags = false;
+//     lv_obj_set_style_bg_color(objects.calibration_bt, lv_color_hex(0xff28f641), LV_PART_MAIN | LV_STATE_DEFAULT);
+//     lv_label_set_text(lv_obj_get_child(objects.calibration_bt,0), UI_STRING[5][SYS_DATA.language_id]);
 // }
-
-
 
 
 /**

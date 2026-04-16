@@ -1,0 +1,1 @@
+set(PROJECT_UI_VARIANT "new")
