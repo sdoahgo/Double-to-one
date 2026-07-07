@@ -197,10 +197,16 @@ void user_device_init(void)
         NVS_data.fit_B1 = 0.0f;
         NVS_data.fit_A2 = 1.0f;
         NVS_data.fit_B2 = 0.0f;
+        NVS_data.turning_point = 60.0f;
+        NVS_data.moisture_first_aiy = 3.435f;
+        NVS_data.moisture_diff = 0.0f;
         NVS_Write_Float(fitting_value_a1,1.0f);
         NVS_Write_Float(fitting_value_b1,0.0f);
         NVS_Write_Float(fitting_value_a2,1.0f);
         NVS_Write_Float(fitting_value_b2,0.0f);
+        NVS_Write_Float(nvs_turning_point, NVS_data.turning_point);
+        NVS_Write_Float(nvs_moisture_first_aiy, NVS_data.moisture_first_aiy);
+        NVS_Write_Float(nvs_moisture_diff, NVS_data.moisture_diff);
     }
     else{
         err = NVS_Read_Float(fitting_value_a1, &NVS_data.fit_A1);
@@ -257,10 +263,34 @@ void user_device_init(void)
         }else{
             ESP_LOGE("NVS", "Read turning_point success: 0x%x", err);
         }
+
+        err = NVS_Read_Float(nvs_moisture_first_aiy, &NVS_data.moisture_first_aiy);
+        if (err == ESP_ERR_NVS_NOT_FOUND) {
+            NVS_data.moisture_first_aiy = 3.435f;
+            ESP_LOGW("NVS", "moisture_first_aiy not found, set default");
+            NVS_Write_Float(nvs_moisture_first_aiy, NVS_data.moisture_first_aiy);
+        } else if (err != ESP_OK) {
+            ESP_LOGE("NVS", "Read moisture_first_aiy failed: 0x%x", err);
+        } else {
+            ESP_LOGE("NVS", "Read moisture_first_aiy success: 0x%x", err);
+        }
+
+        err = NVS_Read_Float(nvs_moisture_diff, &NVS_data.moisture_diff);
+        if (err == ESP_ERR_NVS_NOT_FOUND) {
+            NVS_data.moisture_diff = 0.0f;
+            ESP_LOGW("NVS", "moisture_diff not found, set default");
+            NVS_Write_Float(nvs_moisture_diff, NVS_data.moisture_diff);
+        } else if (err != ESP_OK) {
+            ESP_LOGE("NVS", "Read moisture_diff failed: 0x%x", err);
+        } else {
+            ESP_LOGE("NVS", "Read moisture_diff success: 0x%x", err);
+        }
         
     }
     NVS_data.config_data = SYS_DATA;
     ESP_LOGI("NVS", "fit_A1 = %f, fit_B1 = %f\r\n" ,NVS_data.fit_A1,NVS_data.fit_B1);
     ESP_LOGI("NVS", "fit_A2 = %f, fit_B2 = %f\r\n" ,NVS_data.fit_A2,NVS_data.fit_B2);
     ESP_LOGI("NVS", "turning_point = %f\r\n" ,NVS_data.turning_point);
+    ESP_LOGI("NVS", "moisture_first_aiy = %f, moisture_diff = %f\r\n",
+             NVS_data.moisture_first_aiy, NVS_data.moisture_diff);
 }

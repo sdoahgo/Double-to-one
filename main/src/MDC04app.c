@@ -203,19 +203,36 @@ bool MDC04_init(void)
 
 float Get_MDC04_Data(void)
 {
+    enum {
+        SAMPLE_COUNT = 50,
+        DISCARD_COUNT = 10,
+    };
+    float samples[SAMPLE_COUNT];
     float temp_data = 0.0f;
 
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < SAMPLE_COUNT; i++) {
         MDC04_ConvertCap();
         Read_ChanelNum(1, &cap1);
         MDC04_Software_Auto(&cap1, &Co);
-        if (i >= 40) {
-            temp_data += cap1;
-        }
+        samples[i] = cap1;
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 
-    cap1 = temp_data / 10.0f;
+    for (int i = 0; i < SAMPLE_COUNT - 1; ++i) {
+        for (int j = i + 1; j < SAMPLE_COUNT; ++j) {
+            if (samples[i] > samples[j]) {
+                float temp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = temp;
+            }
+        }
+    }
+
+    for (int i = DISCARD_COUNT; i < SAMPLE_COUNT - DISCARD_COUNT; ++i) {
+        temp_data += samples[i];
+    }
+
+    cap1 = temp_data / (float)(SAMPLE_COUNT - DISCARD_COUNT * 2);
     return cap1;
 }
 

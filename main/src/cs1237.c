@@ -9,9 +9,14 @@ static const char *TAG = "CS1237";
 
 #define CS1237_DOUT_PIN 5
 #define CS1237_SCLK_PIN 9
+#define CS1237_BATCH_SAMPLE_COUNT 10    //每批采集 10 个 CS1237 值
+#define CS1237_BATCH_VALID_COUNT 3  //10个CS1237值中取中间 3 个值作为有效值
+#define CS1237_TARGET_SAMPLE_COUNT 9    //重复次啊杨，直到累计9个有效值
+#define CS1237_SAMPLE_DELAY_MS 50
 
 static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-static int32_t sample_buff[10];
+static int32_t sample_buff[CS1237_TARGET_SAMPLE_COUNT];
+static int32_t batch_buff[CS1237_BATCH_SAMPLE_COUNT];
 
 static void delay_us(uint32_t delay)
 {
@@ -401,19 +406,43 @@ static int32_t process_and_average(int32_t *buff, uint8_t len, char flags, uint8
     return temp;
 }
 
-int32_t get_cs1237_val(void)
+static int32_t cs1237_read_filtered_value(void)
 {
-    for (int i = 0; i < 10; i++) {
-        int32_t ad_val = 0;
+    int32_t ad_val = 0;
 
-        taskENTER_CRITICAL(&mux);
-        ad_val = cs1237_handler1.read_data(&cs1237_handler1);
-        taskEXIT_CRITICAL(&mux);
-        sample_buff[i] = get_filter(ad_val);
-        vTaskDelay(pdMS_TO_TICKS(50));
+    taskENTER_CRITICAL(&mux);
+    ad_val = cs1237_handler1.read_data(&cs1237_handler1);
+    taskEXIT_CRITICAL(&mux);
+    return get_filter(ad_val);
+}
+
+static void cs1237_collect_middle_samples(int32_t *out_buff, uint8_t *out_count)
+{
+    enum {
+        FIRST_MIDDLE_INDEX = (CS1237_BATCH_SAMPLE_COUNT - CS1237_BATCH_VALID_COUNT) / 2,
+    };
+
+    for (uint8_t i = 0; i < CS1237_BATCH_SAMPLE_COUNT; ++i) {
+        batch_buff[i] = cs1237_read_filtered_value();
+        vTaskDelay(pdMS_TO_TICKS(CS1237_SAMPLE_DELAY_MS));
     }
 
-    return process_and_average(sample_buff, 10, 0, 9);
+    process_and_average(batch_buff, CS1237_BATCH_SAMPLE_COUNT, 1, 0);
+
+    for (uint8_t i = 0; i < CS1237_BATCH_VALID_COUNT && *out_count < CS1237_TARGET_SAMPLE_COUNT; ++i) {
+        out_buff[(*out_count)++] = batch_buff[FIRST_MIDDLE_INDEX + i];
+    }
+}
+
+int32_t get_cs1237_val(void)
+{
+    uint8_t valid_count = 0;
+
+    while (valid_count < CS1237_TARGET_SAMPLE_COUNT) {
+        cs1237_collect_middle_samples(sample_buff, &valid_count);
+    }
+
+    return process_and_average(sample_buff, CS1237_TARGET_SAMPLE_COUNT, 1, 0);
 }
 
 int32_t get_cs1237_raw(void)

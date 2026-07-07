@@ -110,6 +110,11 @@ static void ui_update_measure_hold_bar(void);
 static void ui_update_setting_hold_bar(void);
 static void ui_reset_zerong_bar(uint8_t screen_id);
 static void ui_update_zerong_hold_flow(void);
+static bool ui_is_zerong_ing_screen(uint8_t screen_id);
+static void ui_apply_density_zero_calibration(void);
+static int32_t ui_sample_density_zero_raw(void);
+static float ui_sample_moisture_zero_cap(void);
+static float ui_calculate_measure_weight(int32_t cs1237_raw);
 static void ui_update_sensor_labels(const ui_msg_t *msg);
 static void ui_update_ble_icons(void);
 static void ui_update_battery_icons(void);
@@ -131,6 +136,7 @@ static size_t s_battery_indicator_count;
 static int s_display_battery_percent = -1;
 static bool s_battery_percent_reinit_on_show = true;
 static int64_t s_battery_percent_show_after_us = 0;
+static int64_t s_battery_percent_next_drop_us = 0;
 #ifdef USE_TDS
 static void ui_handle_tds_update(const ui_msg_t *msg);
 static void ui_update_tds_temp_labels(const ui_msg_t *msg, int temp_f_times100);
@@ -457,10 +463,15 @@ static void app_scan_i2c_devices(void)
             case 0x45:
                 ESP_LOGI(TAG, "Found I2C device at 0x%02X (MDC04)", address);
                 break;
+            case 0x75:
+                ESP_LOGI(TAG, "Found I2C device at 0x%02X (IP2315)", address);
+                break;
             default:
                 ESP_LOGI(TAG, "Found I2C device at 0x%02X", address);
                 break;
             }
+        } else {
+            ESP_LOGI(TAG, "I2C address 0x%02X: no response", address);
         }
     }
 
@@ -616,6 +627,10 @@ static bool s_zerong_hold_triggered = false;
 static bool s_zerong_wait_release = false;
 static uint8_t s_zerong_last_ing_screen = 0;
 static int64_t s_zerong_ing_start_us = 0;
+static bool s_zerong_md_ing_calibration_started = false;
+static bool s_zerong_advance_pending = false;
+static uint8_t s_zerong_advance_screen = 0;
+static int64_t s_zerong_advance_due_us = 0;
 
 static void ui_set_charge_icon_visibility_recursive(lv_obj_t *root, bool visible)
 {
@@ -1093,7 +1108,11 @@ static void ui_advance_zerong_flow(void)
         return;
     }
 
-    loadScreen(Screens_ID);
+    if (ui_is_zerong_ing_screen(Screens_ID)) {
+        loadScreenNoAnim(Screens_ID);
+    } else {
+        loadScreen(Screens_ID);
+    }
     ui_reset_zerong_bar(Screens_ID);
     ui_apply_localized_texts();
 }
@@ -1151,6 +1170,10 @@ static void ui_update_zerong_hold_flow(void)
         s_zerong_hold_block_next_short_click = false;
         s_zerong_last_ing_screen = 0;
         s_zerong_ing_start_us = 0;
+        s_zerong_md_ing_calibration_started = false;
+        s_zerong_advance_pending = false;
+        s_zerong_advance_screen = 0;
+        s_zerong_advance_due_us = 0;
         return;
     }
 
@@ -1158,33 +1181,89 @@ static void ui_update_zerong_hold_flow(void)
         if (s_zerong_last_ing_screen != Screens_ID) {
             s_zerong_last_ing_screen = Screens_ID;
             s_zerong_ing_start_us = esp_timer_get_time();
-        } else if ((esp_timer_get_time() - s_zerong_ing_start_us) >= 1500 * 1000) {
-            if (Screens_ID == SCREEN_ID_ZERONG_M_D_ING) {
+            s_zerong_md_ing_calibration_started = false;
+        } else if (Screens_ID == SCREEN_ID_ZERONG_M_D_ING) {
+            if (!s_zerong_md_ing_calibration_started &&
+                (esp_timer_get_time() - s_zerong_ing_start_us) >= 100 * 1000) {
+                s_zerong_md_ing_calibration_started = true;
+                ui_apply_density_zero_calibration();
                 s_ui_zerong_flow = UI_ZERONG_FLOW_M_D;
                 s_ui_sub_page_index = 7;
                 Screens_ID = SCREEN_ID_ZERONG_M_D_SUCCESS;
-            } else {
+                loadScreen(Screens_ID);
+                ui_reset_zerong_bar(Screens_ID);
+                ui_apply_localized_texts();
+                s_zerong_last_ing_screen = 0;
+                s_zerong_ing_start_us = 0;
+                s_zerong_md_ing_calibration_started = false;
+                s_zerong_wait_release = true;
+                ui_reset_zerong_hold_state();
+            }
+        } else if ((esp_timer_get_time() - s_zerong_ing_start_us) >= 1500 * 1000) {
+            if (Screens_ID == SCREEN_ID_ZERONG_AW_ING) {
                 s_ui_zerong_flow = UI_ZERONG_FLOW_AW;
                 s_ui_sub_page_index = 8;
                 Screens_ID = SCREEN_ID_ZERONG_AW_SUCCESS;
+                loadScreen(Screens_ID);
+                ui_reset_zerong_bar(Screens_ID);
+                ui_apply_localized_texts();
+                s_zerong_last_ing_screen = 0;
+                s_zerong_ing_start_us = 0;
+                s_zerong_md_ing_calibration_started = false;
+                s_zerong_wait_release = true;
+                ui_reset_zerong_hold_state();
             }
-            loadScreen(Screens_ID);
-            ui_reset_zerong_bar(Screens_ID);
-            ui_apply_localized_texts();
-            s_zerong_last_ing_screen = 0;
-            s_zerong_ing_start_us = 0;
-            s_zerong_wait_release = true;
-            ui_reset_zerong_hold_state();
         }
         return;
     }
 
     s_zerong_last_ing_screen = 0;
     s_zerong_ing_start_us = 0;
+    s_zerong_md_ing_calibration_started = false;
 
     bar = ui_get_zerong_hold_bar_for_screen(Screens_ID);
     if (!bar) {
         ui_reset_zerong_hold_state();
+        s_zerong_advance_pending = false;
+        s_zerong_advance_screen = 0;
+        s_zerong_advance_due_us = 0;
+        return;
+    }
+
+    if (s_zerong_advance_pending) {
+        lv_bar_set_value(bar, 100, LV_ANIM_OFF);
+        if (Screens_ID != s_zerong_advance_screen) {
+            s_zerong_advance_pending = false;
+            s_zerong_advance_screen = 0;
+            s_zerong_advance_due_us = 0;
+        } else if (esp_timer_get_time() >= s_zerong_advance_due_us) {
+            s_zerong_advance_pending = false;
+            s_zerong_advance_screen = 0;
+            s_zerong_advance_due_us = 0;
+
+            if (Screens_ID == SCREEN_ID_ZERONG_M_D_SUCCESS) {
+                s_ui_zerong_flow = UI_ZERONG_FLOW_M_D;
+                s_ui_sub_page_index = 0;
+                Screens_ID = SCREEN_ID_ZERONG_M_D;
+                loadScreen(Screens_ID);
+                ui_reset_zerong_bar(Screens_ID);
+                ui_apply_localized_texts();
+                s_zerong_hold_block_next_short_click = false;
+            } else if (Screens_ID == SCREEN_ID_ZERONG_AW_SUCCESS) {
+                s_ui_zerong_flow = UI_ZERONG_FLOW_AW;
+                s_ui_sub_page_index = 1;
+                Screens_ID = SCREEN_ID_ZERONG_AW;
+                loadScreen(Screens_ID);
+                ui_reset_zerong_bar(Screens_ID);
+                ui_apply_localized_texts();
+                s_zerong_hold_block_next_short_click = false;
+            } else {
+                ui_advance_zerong_flow();
+            }
+
+            s_zerong_wait_release = true;
+            ui_reset_zerong_hold_state();
+        }
         return;
     }
 
@@ -1215,29 +1294,10 @@ static void ui_update_zerong_hold_flow(void)
         if (progress >= 100 && !s_zerong_hold_triggered) {
             s_zerong_hold_triggered = true;
             s_zerong_hold_block_next_short_click = true;
-
-            if (Screens_ID == SCREEN_ID_ZERONG_M_D_SUCCESS) {
-                s_ui_zerong_flow = UI_ZERONG_FLOW_M_D;
-                s_ui_sub_page_index = 0;
-                Screens_ID = SCREEN_ID_ZERONG_M_D;
-                loadScreen(Screens_ID);
-                ui_reset_zerong_bar(Screens_ID);
-                ui_apply_localized_texts();
-            } else if (Screens_ID == SCREEN_ID_ZERONG_AW_SUCCESS) {
-                s_ui_zerong_flow = UI_ZERONG_FLOW_AW;
-                s_ui_sub_page_index = 1;
-                Screens_ID = SCREEN_ID_ZERONG_AW;
-                loadScreen(Screens_ID);
-                ui_reset_zerong_bar(Screens_ID);
-                ui_apply_localized_texts();
-            } else {
-                ui_advance_zerong_flow();
-            }
-
-            s_zerong_wait_release = true;
-            ui_reset_zerong_hold_state();
-            progress = 0;
-            bar = ui_get_zerong_hold_bar_for_screen(Screens_ID);
+            s_zerong_advance_pending = true;
+            s_zerong_advance_screen = Screens_ID;
+            s_zerong_advance_due_us = now_us + 120 * 1000;
+            progress = 100;
         }
     } else {
         int64_t held_ms = (esp_timer_get_time() - s_zerong_hold_start_us) / 1000;
@@ -1252,23 +1312,67 @@ static void ui_update_zerong_hold_flow(void)
     }
 }
 
-static float ui_interp_linear(const float *x, const float *y, size_t count, float value)
+static float ui_eval_natural_spline(const float *x, const float *y, size_t count, float value)
 {
-    if (count == 0) {
+    enum { MAX_SPLINE_POINTS = 11 };
+    float h[MAX_SPLINE_POINTS - 1] = { 0 };
+    float alpha[MAX_SPLINE_POINTS] = { 0 };
+    float l[MAX_SPLINE_POINTS] = { 0 };
+    float mu[MAX_SPLINE_POINTS] = { 0 };
+    float z[MAX_SPLINE_POINTS] = { 0 };
+    float c[MAX_SPLINE_POINTS] = { 0 };
+    float b[MAX_SPLINE_POINTS - 1] = { 0 };
+    float d[MAX_SPLINE_POINTS - 1] = { 0 };
+    size_t idx = 0;
+
+    if (count < 2 || count > MAX_SPLINE_POINTS) {
         return 0.0f;
     }
-    if (value <= x[0]) {
-        float dx = x[1] - x[0];
-        return y[0] + (value - x[0]) * (y[1] - y[0]) / dx;
+
+    for (size_t i = 0; i < count - 1; ++i) {
+        h[i] = x[i + 1] - x[i];
     }
-    for (size_t i = 1; i < count; ++i) {
-        if (value <= x[i]) {
-            float dx = x[i] - x[i - 1];
-            return y[i - 1] + (value - x[i - 1]) * (y[i] - y[i - 1]) / dx;
+
+    for (size_t i = 1; i < count - 1; ++i) {
+        alpha[i] = (3.0f / h[i]) * (y[i + 1] - y[i]) -
+                   (3.0f / h[i - 1]) * (y[i] - y[i - 1]);
+    }
+
+    l[0] = 1.0f;
+    mu[0] = 0.0f;
+    z[0] = 0.0f;
+
+    for (size_t i = 1; i < count - 1; ++i) {
+        l[i] = 2.0f * (x[i + 1] - x[i - 1]) - h[i - 1] * mu[i - 1];
+        mu[i] = h[i] / l[i];
+        z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
+    }
+
+    l[count - 1] = 1.0f;
+    z[count - 1] = 0.0f;
+    c[count - 1] = 0.0f;
+
+    for (int i = (int)count - 2; i >= 0; --i) {
+        c[i] = z[i] - mu[i] * c[i + 1];
+        b[i] = (y[i + 1] - y[i]) / h[i] - h[i] * (c[i + 1] + 2.0f * c[i]) / 3.0f;
+        d[i] = (c[i + 1] - c[i]) / (3.0f * h[i]);
+    }
+
+    if (value < x[0]) {
+        idx = 0;
+    } else if (value > x[count - 1]) {
+        idx = count - 2;
+    } else {
+        for (size_t i = count - 2; i > 0; --i) {
+            if (value >= x[i]) {
+                idx = i;
+                break;
+            }
         }
     }
-    float dx = x[count - 1] - x[count - 2];
-    return y[count - 2] + (value - x[count - 2]) * (y[count - 1] - y[count - 2]) / dx;
+
+    float dx = value - x[idx];
+    return y[idx] + b[idx] * dx + c[idx] * dx * dx + d[idx] * dx * dx * dx;
 }
 
 static float ui_calculate_measure_moisture(float cap_pf, float temp_c)
@@ -1282,6 +1386,7 @@ static float ui_calculate_measure_moisture(float cap_pf, float temp_c)
     };
     static const float roasted_x[] = { 3.2f, 3.3f, 3.92f, 5.8f };
     static const float roasted_y[] = { 1.5f, 1.6f, 2.3f, 2.6f };
+    const float moisture_offset = NVS_data.moisture_diff;
 
     if (cap_pf > 118.0f) {
         return 99.9f;
@@ -1290,22 +1395,42 @@ static float ui_calculate_measure_moisture(float cap_pf, float temp_c)
     float moisture = 0.0f;
     switch (s_ui_sub_page_index) {
     case 0: // Roasted
-        moisture = ui_interp_linear(roasted_x, roasted_y, sizeof(roasted_x) / sizeof(roasted_x[0]), cap_pf);
+        moisture = ui_eval_natural_spline(roasted_x,
+                                          roasted_y,
+                                          sizeof(roasted_x) / sizeof(roasted_x[0]),
+                                          cap_pf - moisture_offset);
         break;
     case 1: { // Green
         float temp_comp = -0.000066f * temp_c * temp_c * temp_c +
                           0.008673f * temp_c * temp_c -
                           0.097408f * temp_c -
                           2.04322f;
-        moisture = ui_interp_linear(md_x, green_y, sizeof(md_x) / sizeof(md_x[0]), cap_pf - temp_comp);
+        moisture = ui_eval_natural_spline(md_x,
+                                          green_y,
+                                          sizeof(md_x) / sizeof(md_x[0]),
+                                          cap_pf - temp_comp - moisture_offset);
         break;
     }
-    case 2: // Parchment
-        moisture = 0.0066540959f * cap_pf * cap_pf + 1.4002391865f * cap_pf + 2.7631594894f;
+    case 2: { // Parchment
+        float cap = cap_pf - moisture_offset;
+        if (cap < 13.7593725f) {
+            moisture = 0.0066540959f * cap * cap + 1.4002391865f * cap + 2.7631594894f;
+        } else {
+            moisture = 0.2064689705f * cap + 20.3991165250f;
+        }
         break;
-    case 3: // DryCherry
-        moisture = 1.0120714060f * cap_pf * cap_pf - 23.0250720579f * cap_pf + 142.2996681948f;
+    }
+    case 3: { // DryCherry
+        float cap = cap_pf - moisture_offset;
+        if (cap < 12.518467f) {
+            moisture = 1.1205462377f * cap - 1.3175210982f;
+        } else if (cap < 13.639030f) {
+            moisture = 1.0120714060f * cap * cap - 23.0250720579f * cap + 142.2996681948f;
+        } else {
+            moisture = 0.3510997354f * cap + 11.8013401754f;
+        }
         break;
+    }
     default:
         break;
     }
@@ -1321,7 +1446,7 @@ static float ui_calculate_measure_moisture(float cap_pf, float temp_c)
 
 static float ui_calculate_measure_density(int32_t cs1237_raw)
 {
-    float weight = 0.3657126f * (float)cs1237_raw * 0.01f - 304.1618f;
+    float weight = ui_calculate_measure_weight(cs1237_raw);
     float density = weight * 1000000.0f / 184380.0f * 1.15426f;
 
     if (density < 0.0f) {
@@ -1331,6 +1456,138 @@ static float ui_calculate_measure_density(int32_t cs1237_raw)
         density = 999.0f;
     }
     return density;
+}
+
+//当重量大于或小于0.2g时，weight值才会变化，如果weight<0,则weight=0
+static float ui_calculate_measure_weight(int32_t cs1237_raw)
+{
+    float raw_weight = 0.3657126f * (float)cs1237_raw * 0.01f - 304.1618f;
+    float weight = raw_weight + NVS_data.fit_B1;
+
+    if (weight > -0.2f && weight < 0.2f) {
+        weight = 0.0f;
+    }            //死区为0.2g
+    if (weight < 0.0f) {
+        weight = 0.0f;
+    }
+
+    return weight;
+}
+
+static int32_t ui_sample_density_zero_raw(void) //密度校准采集次数SAMPLE_COUNT
+{
+    enum { SAMPLE_COUNT = 20 };
+    int32_t samples[SAMPLE_COUNT];
+
+    for (int i = 0; i < SAMPLE_COUNT; ++i) {
+        samples[i] = CS1237_VALUE;
+        vTaskDelay(pdMS_TO_TICKS(120));
+    }
+
+    for (int i = 0; i < SAMPLE_COUNT - 1; ++i) {
+        for (int j = i + 1; j < SAMPLE_COUNT; ++j) {
+            if (samples[i] > samples[j]) {
+                int32_t temp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = temp;
+            }
+        }
+    }
+
+    return samples[SAMPLE_COUNT / 2];
+}
+
+static float ui_sample_moisture_zero_cap(void)
+{
+    enum {
+        SAMPLE_COUNT = 16,
+        DISCARD_COUNT = 4,
+    };
+    float samples[SAMPLE_COUNT];
+    float sum = 0.0f;
+
+    for (int i = 0; i < SAMPLE_COUNT; ++i) {
+        samples[i] = MDC04_VALUE;
+        vTaskDelay(pdMS_TO_TICKS(120));
+    }
+
+    for (int i = 0; i < SAMPLE_COUNT - 1; ++i) {
+        for (int j = i + 1; j < SAMPLE_COUNT; ++j) {
+            if (samples[i] > samples[j]) {
+                float temp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = temp;
+            }
+        }
+    }
+
+    for (int i = DISCARD_COUNT; i < SAMPLE_COUNT - DISCARD_COUNT; ++i) {
+        sum += samples[i];
+    }
+
+    return sum / (float)(SAMPLE_COUNT - DISCARD_COUNT * 2);
+}
+
+static void ui_apply_density_zero_calibration(void)
+{
+    int32_t zero_raw;
+    float moisture_zero_cap;
+    float moisture_diff;
+    float raw_weight;
+    float adjust_weight;
+    esp_err_t err;
+
+    if (!CS1237_LINK) {
+        ESP_LOGW(TAG, "Skip M&D zero calibration because CS1237 is offline");
+        return;
+    }
+
+    if (!MDC04_LINK) {
+        ESP_LOGW(TAG, "Skip M&D zero calibration because MDC04 is offline");
+        return;
+    }
+
+    moisture_zero_cap = ui_sample_moisture_zero_cap();
+    moisture_diff = moisture_zero_cap - NVS_data.moisture_first_aiy;
+    NVS_data.moisture_diff = moisture_diff;
+    NVS_data.moisture_first_aiy = moisture_zero_cap;
+
+    err = NVS_Write_Float(nvs_moisture_diff, NVS_data.moisture_diff);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to save moisture_diff: %s", esp_err_to_name(err));
+    }
+
+    err = NVS_Write_Float(nvs_moisture_first_aiy, NVS_data.moisture_first_aiy);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to save moisture_first_aiy: %s", esp_err_to_name(err));
+    }
+
+    zero_raw = ui_sample_density_zero_raw();
+    raw_weight = 0.3657126f * (float)zero_raw * 0.01f - 304.1618f;
+    adjust_weight = -raw_weight;
+
+    NVS_data.fit_A1 = 1.0f;
+    NVS_data.fit_B1 = adjust_weight;
+
+    err = NVS_Write_Float(fitting_value_a1, NVS_data.fit_A1);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to save density fit_A1: %s", esp_err_to_name(err));
+    }
+
+    err = NVS_Write_Float(fitting_value_b1, NVS_data.fit_B1);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to save density fit_B1: %s", esp_err_to_name(err));
+    }
+
+    ESP_LOGI(TAG,
+             "M&D zero calibration applied, moisture_cap=%.3f moisture_diff=%.3f zero_raw=%ld raw_weight=%.3f adjust_weight=%.3f fit_A1=%.3f fit_B1=%.3f",
+             moisture_zero_cap,
+             moisture_diff,
+             (long)zero_raw,
+             raw_weight,
+             adjust_weight,
+             NVS_data.fit_A1,
+             NVS_data.fit_B1);
 }
 
 static float ui_calculate_measure_aw(float humidity)
@@ -1407,6 +1664,7 @@ static void ui_update_measurement_result(const ui_msg_t *msg)
     }
 
     float moisture = ui_calculate_measure_moisture(msg->MDC04_value, msg->SHT45_TEMP_value);
+    float weight = ui_calculate_measure_weight(msg->CS1237_value);
     float density = ui_calculate_measure_density(msg->CS1237_value);
     float aw = ui_calculate_measure_aw(msg->SHT45_HUMIDITY_value);
 
@@ -1428,6 +1686,13 @@ static void ui_update_measurement_result(const ui_msg_t *msg)
     s_measure_last_valid = true;
 
     if (s_measure_stable_count >= 2) {
+        ESP_LOGI(TAG,
+                 "Measure result: weight=%.3f density=%.3f moisture=%.1f aw=%.3f cs1237=%ld",
+                 weight,
+                 density,
+                 moisture,
+                 aw,
+                 (long)msg->CS1237_value);
         ui_finish_measurement(moisture, density, aw);
     }
 }
@@ -1834,11 +2099,6 @@ static void ui_handle_short_click(void)
 {
     size_t main_screen_count = sizeof(s_ui_main_screens) / sizeof(s_ui_main_screens[0]);
 
-    if (!lv_obj_has_flag(objects.low_power_page, LV_OBJ_FLAG_HIDDEN)) {
-        lv_obj_add_flag(objects.low_power_page, LV_OBJ_FLAG_HIDDEN);
-        return;
-    }
-
     if (s_ui_nav_level == UI_NAV_LEVEL_SUB) {
         ui_cycle_sub_page();
         return;
@@ -2184,48 +2444,9 @@ int app_get_battery_percent_for_log(void)
 
 static void ui_update_battery_percent_labels(void)
 {
-    char text[8];
-    int raw_percent = ui_get_battery_percent();
-    int64_t now_us = esp_timer_get_time();
-
-    if (UI_icon.charge_icon) {
-        s_battery_percent_reinit_on_show = true;
-        s_battery_percent_show_after_us = now_us + 3000 * 1000;
-        for (size_t i = 0; i < s_battery_indicator_count; ++i) {
-            if (s_battery_indicators[i].label) {
-                lv_obj_add_flag(s_battery_indicators[i].label, LV_OBJ_FLAG_HIDDEN);
-            }
-        }
-        return;
-    }
-
-    if (bat_value <= 0.0f) {
-        return;
-    }
-
-    if (s_battery_percent_show_after_us > 0 && now_us < s_battery_percent_show_after_us) {
-        for (size_t i = 0; i < s_battery_indicator_count; ++i) {
-            if (s_battery_indicators[i].label) {
-                lv_obj_add_flag(s_battery_indicators[i].label, LV_OBJ_FLAG_HIDDEN);
-            }
-        }
-        return;
-    }
-
-    if (s_display_battery_percent < 0 || s_battery_percent_reinit_on_show) {
-        s_display_battery_percent = raw_percent;
-        s_battery_percent_reinit_on_show = false;
-        s_battery_percent_show_after_us = 0;
-    } else if (raw_percent < s_display_battery_percent) {
-        s_display_battery_percent = raw_percent;
-    }
-    snprintf(text, sizeof(text), "%d", s_display_battery_percent);
-
     for (size_t i = 0; i < s_battery_indicator_count; ++i) {
         if (s_battery_indicators[i].label) {
-            lv_obj_clear_flag(s_battery_indicators[i].label, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text(s_battery_indicators[i].label, text);
-            ui_position_battery_label(&s_battery_indicators[i]);
+            lv_obj_add_flag(s_battery_indicators[i].label, LV_OBJ_FLAG_HIDDEN);
         }
     }
 }
@@ -2250,9 +2471,6 @@ static void ui_update_battery_icons(void)
         break;
     case 5:
         ui_apply_battery_image(&bat5Percent);
-        lv_obj_clear_flag(objects.low_power_page, LV_OBJ_FLAG_HIDDEN);
-        left_or_right_Animation(lv_obj_get_child(objects.low_power_page, 0), -118, 0, 500, 1, 50);
-        left_or_right_Animation(lv_obj_get_child(objects.low_power_page, 1), 181, 118, 500, 1, 50);
         break;
     default:
         break;

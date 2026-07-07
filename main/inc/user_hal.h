@@ -16,6 +16,8 @@ extern "C"
 #define fitting_value_a2  "fit_a2"
 #define fitting_value_b2  "fit_b2"
 #define nvs_turning_point "turning_point"
+#define nvs_moisture_first_aiy "moist_first"
+#define nvs_moisture_diff "moist_diff"
 
 
 extern SemaphoreHandle_t i2c_mutex;
@@ -38,6 +40,8 @@ typedef struct
     float fit_A2;
     float fit_B2;
     float turning_point;
+    float moisture_first_aiy;
+    float moisture_diff;
 }NVS_data_t;
 
 extern sys_data SYS_DATA;

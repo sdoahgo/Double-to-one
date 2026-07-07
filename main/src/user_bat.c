@@ -7,11 +7,16 @@
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "driver/uart.h" 
+#include "driver/i2c.h"
 #include "user_hal.h"
 #include "user_ble.h"
+#include "MDC04IIC.h"
 
 const static char *TAG_POWER = "BAT";
 #define USB_VBUS_DETECT_GPIO GPIO_NUM_10
+#define IP2315_I2C_ADDR_7BIT 0x75
+#define IP2315_CHG_STAT_REG 0xC7
+#define IP2315_CHG_END_BIT BIT(6)
 #define ADC_ARR_SIZE 10
 static int bat_adc_arr[ADC_ARR_SIZE];
 static bool s_bat_adc_filter_reset_requested;
@@ -158,6 +163,88 @@ static uint8_t map_voltage_to_icon(float v_mv)
 volatile float bat_value = 0.0f;
 extern int app_get_battery_percent_for_log(void);
 
+static esp_err_t ip2315_read_reg(uint8_t reg, uint8_t *value)
+{
+    if (value == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (i2c_mutex && xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(1500)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (!cmd) {
+        if (i2c_mutex) {
+            xSemaphoreGive(i2c_mutex);
+        }
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (IP2315_I2C_ADDR_7BIT << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, reg, true);
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (IP2315_I2C_ADDR_7BIT << 1) | I2C_MASTER_READ, true);
+    i2c_master_read_byte(cmd, value, I2C_MASTER_NACK);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(200));
+    i2c_cmd_link_delete(cmd);
+
+    if (i2c_mutex) {
+        xSemaphoreGive(i2c_mutex);
+    }
+
+    return ret;
+}
+
+static esp_err_t ip2315_probe(void)
+{
+    if (i2c_mutex && xSemaphoreTake(i2c_mutex, pdMS_TO_TICKS(1500)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (!cmd) {
+        if (i2c_mutex) {
+            xSemaphoreGive(i2c_mutex);
+        }
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (IP2315_I2C_ADDR_7BIT << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+
+    if (i2c_mutex) {
+        xSemaphoreGive(i2c_mutex);
+    }
+
+    return ret;
+}
+
+static esp_err_t ip2315_read_charge_state(bool *charging, uint8_t *stat_value)
+{
+    uint8_t value = 0;
+    esp_err_t ret = ip2315_read_reg(IP2315_CHG_STAT_REG, &value);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    if (stat_value) {
+        *stat_value = value;
+    }
+    if (charging) {
+        *charging = ((value & IP2315_CHG_END_BIT) == 0);
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t user_bat_read_voltage_once(float *battery_mv)
 {
     if (battery_mv == NULL) {
@@ -245,6 +332,10 @@ void bat_task(void *pvParameters)
     while (1)
     {
         bool usb_connected = (gpio_get_level(USB_VBUS_DETECT_GPIO) == 1);
+        bool ip2315_charging = false;
+        uint8_t ip2315_chg_stat = 0;
+        esp_err_t ip2315_probe_ret = ip2315_probe();
+        esp_err_t ip2315_ret = ip2315_read_charge_state(&ip2315_charging, &ip2315_chg_stat);
         if (last_usb_connected && !usb_connected) {
             bat_adc_reset_filter();
         }
@@ -259,13 +350,37 @@ void bat_task(void *pvParameters)
             if (new_bat_icon != UI_icon.bat_icon) {
                 UI_icon.bat_icon = new_bat_icon;
             }
-            if (UI_icon.charge_icon != usb_connected) {
-                UI_icon.charge_icon = usb_connected;
+            bool charge_icon_visible = (ip2315_ret == ESP_OK) ? ip2315_charging : false;
+            if (UI_icon.charge_icon != charge_icon_visible) {
+                UI_icon.charge_icon = charge_icon_visible;
             }
             bat_value = filert_vol_1;
             ui_msg_t msg = { .type = UI_MSG_UPDATA_BAT_ICON };
             xQueueSend(ui_msg_queue, &msg, portMAX_DELAY);
-            printf("bat_mV =%.2f bat_pct=%d gpio10=%d charge=%d\n", filert_vol_1, app_get_battery_percent_for_log(), gpio_get_level(USB_VBUS_DETECT_GPIO), UI_icon.charge_icon);
+            static uint8_t bat_log_divider = 0;
+            if ((bat_log_divider++ % 3) == 0) {
+                if (ip2315_ret == ESP_OK) {
+                    printf("bat_mV =%.2f bat_pct=%d gpio10=%d ip2315_addr=0x%02X reg[0x%02X]=0x%02X ip2315_charge=%d charge_icon=%d\n",
+                           filert_vol_1,
+                           app_get_battery_percent_for_log(),
+                           gpio_get_level(USB_VBUS_DETECT_GPIO),
+                           IP2315_I2C_ADDR_7BIT,
+                           IP2315_CHG_STAT_REG,
+                           ip2315_chg_stat,
+                           ip2315_charging,
+                           UI_icon.charge_icon);
+                } else {
+                    printf("bat_mV =%.2f bat_pct=%d gpio10=%d ip2315_addr=0x%02X probe=%s reg[0x%02X]=read_fail(%s) ip2315_charge=0 charge_icon=%d\n",
+                           filert_vol_1,
+                           app_get_battery_percent_for_log(),
+                           gpio_get_level(USB_VBUS_DETECT_GPIO),
+                           IP2315_I2C_ADDR_7BIT,
+                           esp_err_to_name(ip2315_probe_ret),
+                           IP2315_CHG_STAT_REG,
+                           esp_err_to_name(ip2315_ret),
+                           UI_icon.charge_icon);
+                }
+            }
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }

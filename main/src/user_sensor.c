@@ -22,11 +22,10 @@ volatile bool CS1237_LINK = false;
 
 static const char *TAG = "user_sensor";
 
-static void user_sensor_task(void *pvParameters)
+static void user_i2c_sensor_task(void *pvParameters)
 {
     uint16_t temp_raw = 0;
     uint16_t humidity_raw = 0;
-    ui_msg_t msg;
 
     (void)pvParameters;
 
@@ -44,31 +43,58 @@ static void user_sensor_task(void *pvParameters)
             }
 
             MDC04_LINK = MDC04_ID();
-            MDC04_VALUE = Get_MDC04_Data1();
+            MDC04_VALUE = Get_MDC04_Data();
             UI_DATA.display_capacitance = MDC04_VALUE;
             xSemaphoreGive(i2c_mutex);
         }
 
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+static void user_cs1237_sensor_task(void *pvParameters)
+{
+    (void)pvParameters;
+
+    while (1) {
         CS1237_VALUE = get_cs1237_val();
         CS1237_LINK = cs1237_check_data(&cs1237_handler1) == 0;
         UI_DATA.display_weight_raw = CS1237_VALUE;
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+static void user_sensor_publish_task(void *pvParameters)
+{
+    ui_msg_t msg;
+
+    (void)pvParameters;
+
+    while (1) {
+        float temp = SHT45_TEMP;
+        float humidity = SHT45_HUMIDITY;
+        float cap = MDC04_VALUE;
+        int32_t cs1237 = CS1237_VALUE;
+        bool sht45_link = SHT45_LINK;
+        bool mdc04_link = MDC04_LINK;
+        bool cs1237_link = CS1237_LINK;
 
         ESP_LOGI(TAG, "SHT45: %.2f C %.2f %%RH, MDC04_LINK: %d MDC04: %.3f pF, CS1237: %ld",
-                 SHT45_TEMP, SHT45_HUMIDITY, MDC04_LINK, MDC04_VALUE, (long)CS1237_VALUE);
+                 temp, humidity, mdc04_link, cap, (long)cs1237);
 
         if (ui_msg_queue) {
             msg.type = UI_MSG_UPDATE_SENSOR;
-            msg.SHT45_TEMP_value = SHT45_TEMP;
-            msg.SHT45_HUMIDITY_value = SHT45_HUMIDITY;
-            msg.MDC04_value = MDC04_VALUE;
-            msg.CS1237_value = CS1237_VALUE;
-            msg.SHT45_link = SHT45_LINK;
-            msg.MDC04_link = MDC04_LINK;
-            msg.CS1237_link = CS1237_LINK;
+            msg.SHT45_TEMP_value = temp;
+            msg.SHT45_HUMIDITY_value = humidity;
+            msg.MDC04_value = cap;
+            msg.CS1237_value = cs1237;
+            msg.SHT45_link = sht45_link;
+            msg.MDC04_link = mdc04_link;
+            msg.CS1237_link = cs1237_link;
             xQueueSend(ui_msg_queue, &msg, 0);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
@@ -89,5 +115,7 @@ void user_sensor_init(void)
 
     CS1237_LINK = driver_cs1237_init();
 
-    xTaskCreate(user_sensor_task, "user_sensor_task", 1024 * 4, NULL, tskIDLE_PRIORITY + 4, NULL);
+    xTaskCreate(user_i2c_sensor_task, "user_i2c_sensor_task", 1024 * 4, NULL, tskIDLE_PRIORITY + 4, NULL);
+    xTaskCreate(user_cs1237_sensor_task, "user_cs1237_sensor_task", 1024 * 4, NULL, tskIDLE_PRIORITY + 4, NULL);
+    xTaskCreate(user_sensor_publish_task, "user_sensor_publish_task", 1024 * 3, NULL, tskIDLE_PRIORITY + 3, NULL);
 }
